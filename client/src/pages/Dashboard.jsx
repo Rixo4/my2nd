@@ -184,33 +184,38 @@ export default function Dashboard() {
   const profitPct = ((profit / portfolio.initial) * 100).toFixed(2)
 
   const loadSymbol = useCallback(async (sym) => {
-    setLastUpdate('Loading...')
-    const isCrypto = ALL_SYMBOLS.find(s => s.id === sym)?.market === 'crypto'
-    
-    let data = []
-    let realTime = false
-    if (isCrypto) {
-      try {
-        data = await BinanceService.getHistoricalData(sym + 'USDT', timeframe)
-        if (data && data.length > 0) {
-          realTime = true
+    try {
+      setLastUpdate('Loading...')
+      const isCrypto = ALL_SYMBOLS.find(s => s.id === sym)?.market === 'crypto'
+      
+      let data = []
+      let realTime = false
+      if (isCrypto) {
+        try {
+          data = await BinanceService.getHistoricalData(sym + 'USDT', timeframe)
+          if (data && data.length > 0) {
+            realTime = true
+          }
+        } catch (err) {
+          console.error('Binance historical fetch failed, falling back to mock:', err)
         }
-      } catch (err) {
-        console.error('Binance historical fetch failed, falling back to mock:', err)
       }
-    }
-    
-    if (!realTime || !data || data.length === 0) {
-      realTime = false
-      data = [...(CANDLE_DATA[sym] || [])]
-    }
+      
+      if (!realTime || !data || data.length === 0) {
+        realTime = false
+        data = [...(CANDLE_DATA[sym] || [])]
+      }
 
-    setIsRealTime(realTime)
-    setCandles(data)
-    setTrend(detectTrend(data))
-    const detected = detectPatterns(data)
-    setPatterns(detected)
-    setLastUpdate(new Date().toLocaleTimeString())
+      setIsRealTime(realTime)
+      setCandles(data)
+      setTrend(detectTrend(data))
+      const detected = detectPatterns(data)
+      setPatterns(detected)
+      setLastUpdate(new Date().toLocaleTimeString())
+    } catch (error) {
+      console.error('Error loading symbol:', error)
+      setLastUpdate('Error loading data')
+    }
   }, [timeframe])
 
   useEffect(() => {
@@ -218,15 +223,21 @@ export default function Dashboard() {
   }, [activeSymbol, loadSymbol])
 
   const loadDefaultNews = useCallback(async () => {
-    setNewsLoading(true)
-    const searchQuery = activeSymbol ? `${activeSymbol} news` : 'stock market news'
-    const articles = await fetchLiveNews(searchQuery)
-    if (articles && articles.length > 0) {
-      setLiveNews(articles)
-    } else {
+    try {
+      setNewsLoading(true)
+      const searchQuery = activeSymbol ? `${activeSymbol} news` : 'stock market news'
+      const articles = await fetchLiveNews(searchQuery)
+      if (articles && articles.length > 0) {
+        setLiveNews(articles)
+      } else {
+        setLiveNews(STOCK_MARKET_NEWS)
+      }
+    } catch (error) {
+      console.error('Error loading news:', error)
       setLiveNews(STOCK_MARKET_NEWS)
+    } finally {
+      setNewsLoading(false)
     }
-    setNewsLoading(false)
   }, [activeSymbol])
 
   useEffect(() => {
@@ -263,34 +274,38 @@ export default function Dashboard() {
       }
     }
 
-    if (isRealTime) {
-      binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, (newCandle) => {
-        setCandles(prev => {
-          const last = prev[prev.length - 1]
-          let updated = []
-          if (last && last.time === newCandle.time) {
-            updated = [...prev.slice(0, -1), newCandle]
-          } else {
-            updated = [...prev.slice(-199), newCandle]
-          }
-          handleNewData(updated, newCandle)
-          return updated
+    try {
+      if (isRealTime) {
+        binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, (newCandle) => {
+          setCandles(prev => {
+            const last = prev[prev.length - 1]
+            let updated = []
+            if (last && last.time === newCandle.time) {
+              updated = [...prev.slice(0, -1), newCandle]
+            } else {
+              updated = [...prev.slice(-199), newCandle]
+            }
+            handleNewData(updated, newCandle)
+            return updated
+          })
+          setLastUpdate(new Date().toLocaleTimeString())
         })
-        setLastUpdate(new Date().toLocaleTimeString())
-      })
-      binanceWs.connect()
-    } else {
-      const interval = setInterval(() => {
-        const newCandle = getNextCandle(activeSymbol)
-        if (!newCandle) return
-        setCandles(prev => {
-          const updated = [...prev.slice(-119), newCandle]
-          handleNewData(updated, newCandle)
-          return updated
-        })
-        setLastUpdate(new Date().toLocaleTimeString())
-      }, isBeginner ? 8000 : 4000)
-      return () => clearInterval(interval)
+        binanceWs.connect()
+      } else {
+        const interval = setInterval(() => {
+          const newCandle = getNextCandle(activeSymbol)
+          if (!newCandle) return
+          setCandles(prev => {
+            const updated = [...prev.slice(-119), newCandle]
+            handleNewData(updated, newCandle)
+            return updated
+          })
+          setLastUpdate(new Date().toLocaleTimeString())
+        }, isBeginner ? 8000 : 4000)
+        return () => clearInterval(interval)
+      }
+    } catch (error) {
+      console.error('Error in live data connection:', error)
     }
 
     return () => {
@@ -430,7 +445,7 @@ export default function Dashboard() {
             <div className="w-6 h-6 bg-brand-500 rounded flex items-center justify-center">
               <BarChart2 size={14} className="text-white" />
             </div>
-            <span className="text-white font-bold tracking-tight text-sm hidden sm:inline">CHARTIFY</span>
+            <span className="text-white font-bold tracking-tight text-sm hidden sm:inline">TradeWise</span>
           </Link>
 
           <select value={activeSymbol} onChange={e => setActiveSymbol(e.target.value)}

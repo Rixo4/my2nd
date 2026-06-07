@@ -14,7 +14,7 @@ const STEPS = [
     icon: ScanSearch,
     num: '02',
     title: 'Scan the Data',
-    desc: 'CHARTIFY pulls live OHLC data across your selected universe. The engine processes price action across every candle.',
+    desc: 'TradeWise pulls live OHLC data across your selected universe. The engine processes price action across every candle.',
     color: 'text-violet-400',
     glow: 'rgba(167,139,250,0.3)',
   },

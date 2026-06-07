@@ -12,7 +12,7 @@ export default function PatternShowcase() {
             15 Patterns. Endless Opportunity.
           </h2>
           <p className="text-slate-400 max-w-lg mx-auto">
-            CHARTIFY detects the formations that drive markets — so you never trade blind.
+            TradeWise detects the formations that drive markets — so you never trade blind.
           </p>
         </div>
 

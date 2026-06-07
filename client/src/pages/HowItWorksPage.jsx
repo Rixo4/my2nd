@@ -201,7 +201,7 @@ const AlertVisualizer = () => {
             <div className="w-5 h-5 bg-brand-500 rounded flex items-center justify-center">
               <BarChart2 size={10} className="text-white" />
             </div>
-            <span className="text-white text-[10px] font-black uppercase tracking-wider">CHARTIFY</span>
+            <span className="text-white text-[10px] font-black uppercase tracking-wider">TradeWise</span>
           </div>
           <span className="text-[9px] text-slate-500">now</span>
         </div>
@@ -254,7 +254,7 @@ export default function HowItWorksPage() {
             transition={{ delay: 0.1 }}
             className="text-4xl md:text-6xl font-black text-white mb-6 leading-tight"
           >
-            How <span className="gradient-text">CHARTIFY</span> Works
+            How <span className="gradient-text">TradeWise</span> Works
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}

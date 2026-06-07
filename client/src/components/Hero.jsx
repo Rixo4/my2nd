@@ -37,7 +37,7 @@ export default function Hero() {
         {/* Subheadline */}
         <motion.p {...fadeUp(0.35)}
           className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-          CHARTIFY automatically detects candlestick patterns from live OHLC data —
+          TradeWise automatically detects candlestick patterns from live OHLC data —
           turning raw price action into instant, actionable trading signals.
           No expertise required.
         </motion.p>

@@ -75,13 +75,13 @@ export default function Footer() {
         <div className="border-t border-slate-800/60 pt-8 space-y-4">
           <p className="text-slate-600 text-xs leading-relaxed max-w-4xl">
             <span className="text-slate-500 font-semibold">⚠ Trading Risk Disclaimer:</span>{' '}
-            CHARTIFY is a technical analysis tool designed to assist in identifying candlestick patterns.
+            TradeWise is a technical analysis tool designed to assist in identifying candlestick patterns.
             It does not provide financial advice, investment recommendations, or guaranteed trading signals.
             All trading involves substantial risk of loss. Past pattern performance does not guarantee future results.
             Always conduct your own due diligence and consult a licensed financial advisor before making investment decisions.
           </p>
           <p className="text-slate-700 text-xs">
-            © {new Date().getFullYear()} CHARTIFY Technologies. All rights reserved.
+            © {new Date().getFullYear()} TradeWise Technologies. All rights reserved.
           </p>
         </div>
       </div>

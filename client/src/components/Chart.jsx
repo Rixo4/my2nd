@@ -11,6 +11,7 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
   const [drawings, setDrawings] = useState([]) // { type: 'line', points: [{time, price}] }
   const [isDrawing, setIsDrawing] = useState(false)
   const [localShowPatterns, setLocalShowPatterns] = useState(true)
+  const [chartError, setChartError] = useState(null)
 
   const showPatterns = propShowPatterns !== undefined ? propShowPatterns : localShowPatterns
   const setShowPatterns = onShowPatternsChange !== undefined ? onShowPatternsChange : setLocalShowPatterns
@@ -18,7 +19,8 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
   useEffect(() => {
     if (!containerRef.current) return
 
-    const chart = createChart(containerRef.current, {
+    try {
+      const chart = createChart(containerRef.current, {
       layout: {
         background: { color: '#0d0d18' },
         textColor: '#64748b',
@@ -113,38 +115,46 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
       chartRef.current = null
       seriesRef.current = null
     }
+    } catch (error) {
+      console.error('Error initializing chart:', error)
+      setChartError('Failed to initialize chart')
+    }
   }, [height, drawingMode, isDrawing])
 
   // Update Data and Markers
   useEffect(() => {
     if (!seriesRef.current || !data?.length) return
-    seriesRef.current.setData(data)
+    try {
+      seriesRef.current.setData(data)
 
-    if (showPatterns && patterns.length > 0) {
-      const allMarkers = []
-      patterns.slice(0, 30).forEach(p => {
-        p.times.forEach((t, idx) => {
-          const isLast = idx === p.times.length - 1
-          allMarkers.push({
-            time: t,
-            position: p.signal === 'bullish' ? 'belowBar' : p.signal === 'bearish' ? 'aboveBar' : 'inBar',
-            color: p.signal === 'bullish' ? 'rgba(34, 197, 94, 0.8)' : p.signal === 'bearish' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(245, 158, 11, 0.8)',
-            shape: isLast 
-              ? (p.signal === 'bullish' ? 'arrowUp' : p.signal === 'bearish' ? 'arrowDown' : 'circle')
-              : 'square',
-            text: isLast ? p.pattern : '',
-            size: isLast ? 1.2 : 0.6,
+      if (showPatterns && patterns.length > 0) {
+        const allMarkers = []
+        patterns.slice(0, 30).forEach(p => {
+          p.times.forEach((t, idx) => {
+            const isLast = idx === p.times.length - 1
+            allMarkers.push({
+              time: t,
+              position: p.signal === 'bullish' ? 'belowBar' : p.signal === 'bearish' ? 'aboveBar' : 'inBar',
+              color: p.signal === 'bullish' ? 'rgba(34, 197, 94, 0.8)' : p.signal === 'bearish' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(245, 158, 11, 0.8)',
+              shape: isLast 
+                ? (p.signal === 'bullish' ? 'arrowUp' : p.signal === 'bearish' ? 'arrowDown' : 'circle')
+                : 'square',
+              text: isLast ? p.pattern : '',
+              size: isLast ? 1.2 : 0.6,
+            })
           })
         })
-      })
-      seriesRef.current.setMarkers(allMarkers)
-    } else {
-      seriesRef.current.setMarkers([])
-    }
+        seriesRef.current.setMarkers(allMarkers)
+      } else {
+        seriesRef.current.setMarkers([])
+      }
 
-    if (chartRef.current && data?.length && !chartRef.current._hasFittedOnce) {
-      chartRef.current.timeScale().fitContent()
-      chartRef.current._hasFittedOnce = true
+      if (chartRef.current && data?.length && !chartRef.current._hasFittedOnce) {
+        chartRef.current.timeScale().fitContent()
+        chartRef.current._hasFittedOnce = true
+      }
+    } catch (error) {
+      console.error('Error updating chart data:', error)
     }
   }, [data, patterns, showPatterns])
 
@@ -152,47 +162,79 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
   useEffect(() => {
     if (!chartRef.current) return
     
-    // Clear old drawing series
-    drawingSeriesRef.current.forEach(s => chartRef.current.removeSeries(s))
-    drawingSeriesRef.current = []
+    try {
+      // Clear old drawing series
+      drawingSeriesRef.current.forEach(s => chartRef.current.removeSeries(s))
+      drawingSeriesRef.current = []
 
-    drawings.forEach(d => {
-      if (d.points.length < 2) return
-      
-      const lineSeries = chartRef.current.addLineSeries({
-        color: d.type === 'box' ? 'rgba(249, 115, 22, 0.5)' : '#f97316',
-        lineWidth: 2,
-        lineStyle: 0,
+      drawings.forEach(d => {
+        if (d.points.length < 2) return
+        
+        const lineSeries = chartRef.current.addLineSeries({
+          color: d.type === 'box' ? 'rgba(249, 115, 22, 0.5)' : '#f97316',
+          lineWidth: 2,
+          lineStyle: 0,
+        })
+        
+        if (d.type === 'line') {
+          // Simple line between 2 points
+          lineSeries.setData([
+            { time: d.points[0].time, value: d.points[0].price },
+            { time: d.points[1].time, value: d.points[1].price }
+          ])
+        } else if (d.type === 'box') {
+          // Boxes are harder in lightweight-charts without custom series,
+          // so we draw 4 lines for now to simulate a box
+          const p1 = d.points[0]
+          const p2 = d.points[1]
+          lineSeries.setData([
+            { time: p1.time, value: p1.price },
+            { time: p2.time, value: p1.price },
+            { time: p2.time, value: p2.price },
+            { time: p1.time, value: p2.price },
+            { time: p1.time, value: p1.price },
+          ])
+        }
+        
+        drawingSeriesRef.current.push(lineSeries)
       })
-      
-      if (d.type === 'line') {
-        // Simple line between 2 points
-        lineSeries.setData([
-          { time: d.points[0].time, value: d.points[0].price },
-          { time: d.points[1].time, value: d.points[1].price }
-        ])
-      } else if (d.type === 'box') {
-        // Boxes are harder in lightweight-charts without custom series,
-        // so we draw 4 lines for now to simulate a box
-        const p1 = d.points[0]
-        const p2 = d.points[1]
-        lineSeries.setData([
-          { time: p1.time, value: p1.price },
-          { time: p2.time, value: p1.price },
-          { time: p2.time, value: p2.price },
-          { time: p1.time, value: p2.price },
-          { time: p1.time, value: p1.price },
-        ])
-      }
-      
-      drawingSeriesRef.current.push(lineSeries)
-    })
+    } catch (error) {
+      console.error('Error rendering drawings:', error)
+    }
   }, [drawings])
 
-  const zoomIn = () => chartRef.current?.timeScale().scaleAroundCenter(1.4)
-  const zoomOut = () => chartRef.current?.timeScale().scaleAroundCenter(0.6)
-  const resetZoom = () => chartRef.current?.timeScale().fitContent()
+  const zoomIn = () => {
+    try {
+      chartRef.current?.timeScale().scaleAroundCenter(1.4)
+    } catch (error) {
+      console.error('Error zooming in:', error)
+    }
+  }
+  const zoomOut = () => {
+    try {
+      chartRef.current?.timeScale().scaleAroundCenter(0.6)
+    } catch (error) {
+      console.error('Error zooming out:', error)
+    }
+  }
+  const resetZoom = () => {
+    try {
+      chartRef.current?.timeScale().fitContent()
+    } catch (error) {
+      console.error('Error resetting zoom:', error)
+    }
+  }
   const clearDrawings = () => setDrawings([])
+
+  if (chartError) {
+    return (
+      <div className="relative rounded-xl overflow-hidden border border-slate-800/60 bg-surface-800 p-8 text-center">
+        <p className="text-red-400 font-bold mb-2">Chart Error</p>
+        <p className="text-slate-400 text-sm">{chartError}</p>
+        <p className="text-slate-500 text-xs mt-4">Candles loaded: {data?.length || 0}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="relative rounded-xl overflow-hidden border border-slate-800/60 group">

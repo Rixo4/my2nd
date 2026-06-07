@@ -1,6 +1,6 @@
-# CHARTIFY 🕯️
+# TradeWise 🕯️
 
-CHARTIFY is a real-time candlestick pattern recognition, analysis, and simulated trading platform. It helps traders master technical analysis by identifying market trends and patterns dynamically on live and simulated financial charts, coupled with simulated trading capabilities and an interactive learning academy.
+TradeWise is a real-time candlestick pattern recognition, analysis, and simulated trading platform. It helps traders master technical analysis by identifying market trends and patterns dynamically on live and simulated financial charts, coupled with simulated trading capabilities and an interactive learning academy.
 
 ---
 
@@ -61,5 +61,5 @@ Runs the Vite development server on `http://localhost:3000`.
 ---
 
 ## 👥 Authors
-* **GitHub Repository**: [svarvh/CHARTIFY](https://github.com/svarvh/CHARTIFY)
+* **GitHub Repository**: [svarvh/TradeWise](https://github.com/svarvh/TradeWise)
 * **Commits By**: `svarvh`

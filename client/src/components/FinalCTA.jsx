@@ -26,7 +26,7 @@ export default function FinalCTA() {
             </h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
               Every minute you spend manually scanning charts is a minute your edge is slipping.
-              CHARTIFY hands you an institutional-grade detection engine — for every trader, at every level.
+              TradeWise hands you an institutional-grade detection engine — for every trader, at every level.
               The setups are already forming. Will you see them in time?
             </p>
 
