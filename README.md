@@ -59,7 +59,3 @@ npm run dev
 Runs the Vite development server on `http://localhost:3000`.
 
 ---
-
-## 👥 Authors
-* **GitHub Repository**: [svarvh/TradeWise](https://github.com/svarvh/TradeWise)
-* **Commits By**: `svarvh`
