@@ -3,6 +3,7 @@
  */
 
 const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/ws';
+const BINANCE_API_KEY = import.meta.env.VITE_BINANCE_API_KEY || '';
 
 export class BinanceService {
   constructor(symbol, timeframe, onUpdate) {
@@ -88,7 +89,13 @@ export class BinanceService {
     const s = symbol.toUpperCase().replace('/', '');
     const tf = timeframe || '1d';
     try {
-      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${tf}&limit=${limit}`);
+      const headers = {};
+      if (BINANCE_API_KEY) {
+        headers['X-MBX-APIKEY'] = BINANCE_API_KEY;
+      }
+      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${tf}&limit=${limit}`, {
+        headers
+      });
       const data = await response.json();
       return data.map(d => ({
         time: d[0] / 1000,

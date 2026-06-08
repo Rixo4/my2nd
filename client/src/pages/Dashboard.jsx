@@ -13,6 +13,7 @@ import Watchlist from '../components/Watchlist'
 import Filters from '../components/Filters'
 import LearningCards from '../components/LearningCards'
 import RecommendationBox from '../components/RecommendationBox'
+import ChatBot from '../components/ChatBot'
 import { CANDLE_DATA, ALL_SYMBOLS, SYMBOLS, getNextCandle } from '../data/mockData'
 import { STOCK_MARKET_NEWS } from '../data/newsData'
 import { LEARNING_TOPICS } from '../data/learningData'
@@ -42,7 +43,7 @@ function generateAlert(symbol, pattern, isBeginner) {
   }
 }
 
-const SERPER_API_KEY = '2e812f4758f11b6599bb4a1ab600f126dd22db31'
+const SERPER_API_KEY = import.meta.env.VITE_SERPER_API_KEY || '2e812f4758f11b6599bb4a1ab600f126dd22db31'
 
 async function fetchLiveNews(query) {
   try {
@@ -126,6 +127,7 @@ export default function Dashboard() {
   const [academyTracks, setAcademyTracks] = useState(ACADEMY_TRACKS)
   const [activeTrackId, setActiveTrackId] = useState('beginner')
   const [watchlist, setWatchlist] = useState(['AAPL', 'BTC', 'EURUSD'])
+  const [isChatBotMinimized, setIsChatBotMinimized] = useState(true)
 
   const buyAsset = () => {
     const lastCandle = candles[candles.length - 1]
@@ -1051,6 +1053,15 @@ export default function Dashboard() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* ChatBot */}
+      <ChatBot
+        symbol={activeSymbol}
+        patterns={patterns}
+        trend={trend}
+        isMinimized={isChatBotMinimized}
+        onToggleMinimize={() => setIsChatBotMinimized(!isChatBotMinimized)}
+      />
     </div>
   )
 }
