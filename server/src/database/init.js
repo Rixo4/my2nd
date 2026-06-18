@@ -10,10 +10,16 @@ import { dirname, join } from 'path'
 import { mkdirSync } from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const DB_PATH = join(__dirname, '../../data/paper_trading.db')
+
+const isVercel = !!process.env.VERCEL
+const DB_PATH = isVercel 
+  ? '/tmp/paper_trading.db' 
+  : join(__dirname, '../../data/paper_trading.db')
 
 // Ensure the data directory exists
-mkdirSync(join(__dirname, '../../data'), { recursive: true })
+if (!isVercel) {
+  mkdirSync(join(__dirname, '../../data'), { recursive: true })
+}
 
 let _db = null
 

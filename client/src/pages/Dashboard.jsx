@@ -148,7 +148,7 @@ export default function Dashboard() {
   const fetchBackendPortfolio = useCallback(async (id) => {
     if (!id) return
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/paper/portfolio/${id}`)
+      const res = await fetch(`/api/v1/paper/portfolio/${id}`)
       const data = await res.json()
       if (data.success && data.portfolio) {
         const port = data.portfolio
@@ -180,7 +180,7 @@ export default function Dashboard() {
       }, 5000)
       return () => clearInterval(interval)
     } else {
-      fetch('http://localhost:5000/api/v1/paper/portfolio', {
+      fetch('/api/v1/paper/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'TradeWise Paper Account', startingBalance: 10000 })
@@ -214,7 +214,7 @@ export default function Dashboard() {
     }
 
     try {
-      const res = await fetch('http://localhost:5000/api/v1/paper/positions', {
+      const res = await fetch('/api/v1/paper/positions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -244,7 +244,7 @@ export default function Dashboard() {
     }
 
     try {
-      const res = await fetch(`http://localhost:5000/api/v1/paper/positions/${position.id}?portfolioId=${portfolio.id}`, {
+      const res = await fetch(`/api/v1/paper/positions/${position.id}?portfolioId=${portfolio.id}`, {
         method: 'DELETE'
       })
       const data = await res.json()

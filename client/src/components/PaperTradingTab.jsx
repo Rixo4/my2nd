@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 
-const API_BASE = 'http://localhost:5000/api/v1/paper'
+const API_BASE = '/api/v1/paper'
 const SUPPORTED_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'BTC', 'ETH', 'EURUSD', 'GBPUSD']
 
 export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefreshPortfolio }) {
