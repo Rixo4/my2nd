@@ -29,8 +29,7 @@
     @apply bg-surface-800 border border-slate-800/60 rounded-2xl;
   }
   .card-hover {
-    @apply card transition-all duration-300 hover:border-brand-500/40
-           hover:shadow-[0_0_30px_rgba(30,64,175,0.08)];
+    @apply card transition-all duration-300 hover:border-brand-500/40 hover:shadow-[0_0_30px_rgba(30,64,175,0.08)];
   }
   .badge {
     @apply text-xs font-semibold px-2.5 py-1 rounded-full;

@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { BarChart2, Menu, X, Zap } from 'lucide-react'
+import { BarChart2, Menu, X, Zap, LogOut } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 
 const NAV_LINKS = [
   { label: 'Features',   href: '/#features' },
@@ -13,7 +14,13 @@ const NAV_LINKS = [
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const { pathname } = useLocation()
-  const isDashboard = pathname === '/dashboard' || pathname === '/patterns'
+  const { user, isAuthenticated, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800/50"
@@ -43,12 +50,32 @@ export default function Navbar() {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Link to="/login" className="btn-secondary text-sm py-2 px-4">
-              Sign In
-            </Link>
-            <Link to="/login" className="btn-primary text-sm py-2 px-4">
-              <Zap size={14} /> Start Free
-            </Link>
+            {isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2.5 border-r border-slate-800 pr-4">
+                  <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full border border-slate-700 bg-slate-800 shrink-0" />
+                  <div className="flex flex-col text-left">
+                    <span className="text-white text-xs font-bold leading-none">{user.name}</span>
+                    <span className="text-slate-500 text-[9px] mt-1 leading-none">{user.provider} account</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 hover:text-red-400 hover:border-red-500/30"
+                >
+                  <LogOut size={12} /> Log Out
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link to="/login" className="btn-secondary text-sm py-2 px-4">
+                  Sign In
+                </Link>
+                <Link to="/login" className="btn-primary text-sm py-2 px-4">
+                  <Zap size={14} /> Start Free
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile toggle */}
@@ -72,10 +99,29 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <Link to="/dashboard" onClick={() => setMobileOpen(false)}
-                  className="btn-primary text-sm py-2.5 w-full justify-center mt-2">
-              <Zap size={14} /> Start Scanning Free
-            </Link>
+            
+            {isAuthenticated ? (
+              <div className="flex flex-col gap-3 pt-3 border-t border-slate-800/60">
+                <div className="flex items-center gap-3 px-2">
+                  <img src={user.avatar} alt={user.name} className="w-10 h-10 rounded-full border border-slate-700 bg-slate-800 shrink-0" />
+                  <div className="flex flex-col text-left">
+                    <span className="text-white text-sm font-bold leading-none">{user.name}</span>
+                    <span className="text-slate-400 text-xs mt-1 leading-none">{user.email}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="btn-secondary text-sm py-2.5 w-full justify-center flex items-center gap-2 mt-2 hover:text-red-400 hover:border-red-500/30"
+                >
+                  <LogOut size={14} /> Log Out
+                </button>
+              </div>
+            ) : (
+              <Link to="/login" onClick={() => setMobileOpen(false)}
+                    className="btn-primary text-sm py-2.5 w-full justify-center mt-2">
+                <Zap size={14} /> Start Scanning Free
+              </Link>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

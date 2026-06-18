@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BarChart2, RefreshCw, Activity, BookOpen, Zap, AlertCircle, 
   TrendingUp, HelpCircle, Menu, X, Layout, Wallet, List, Bell, Search,
-  Bitcoin, Shield, Play, Check, ChevronRight
+  Bitcoin, Shield, Play, Check, ChevronRight, Briefcase, LogOut
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import Chart from '../components/Chart'
 import PatternPanel from '../components/PatternPanel'
 import AlertPanel from '../components/AlertPanel'
@@ -14,6 +15,7 @@ import Filters from '../components/Filters'
 import LearningCards from '../components/LearningCards'
 import RecommendationBox from '../components/RecommendationBox'
 import ChatBot from '../components/ChatBot'
+import PaperTradingTab from '../components/PaperTradingTab'
 import { CANDLE_DATA, ALL_SYMBOLS, SYMBOLS, getNextCandle } from '../data/mockData'
 import { STOCK_MARKET_NEWS } from '../data/newsData'
 import { LEARNING_TOPICS } from '../data/learningData'
@@ -100,6 +102,14 @@ async function fetchLiveNews(query) {
 }
 
 export default function Dashboard() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login')
+  }
+
   const [activeSymbol, setActiveSymbol] = useState('BTC')
   const [market, setMarket]       = useState('All')
   const [timeframe, setTimeframe] = useState('1d')
@@ -113,7 +123,13 @@ export default function Dashboard() {
   const [isBeginner, setIsBeginner] = useState(false)
   const [showPatterns, setShowPatterns] = useState(true)
   const [trend, setTrend] = useState('Analyzing...')
-  const [portfolio, setPortfolio] = useState({ balance: 10000, holdings: {}, initial: 10000 })
+  const [portfolio, setPortfolio] = useState({ 
+    balance: 10000, 
+    holdings: {}, 
+    initial: 10000,
+    id: localStorage.getItem('tradewise_paper_portfolio_id'),
+    rawPositions: []
+  })
   const [mobileView, setMobileView] = useState('chart') // 'chart', 'market', 'patterns', 'portfolio'
   const [selectedNews, setSelectedNews] = useState(null)
   const [activeTab, setActiveTab] = useState('terminal') // 'terminal', 'news', 'learning'
@@ -129,38 +145,118 @@ export default function Dashboard() {
   const [watchlist, setWatchlist] = useState(['AAPL', 'BTC', 'EURUSD'])
   const [isChatBotMinimized, setIsChatBotMinimized] = useState(true)
 
-  const buyAsset = () => {
+  const fetchBackendPortfolio = useCallback(async (id) => {
+    if (!id) return
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/paper/portfolio/${id}`)
+      const data = await res.json()
+      if (data.success && data.portfolio) {
+        const port = data.portfolio
+        const holdings = {}
+        if (port.positions) {
+          port.positions.forEach(pos => {
+            holdings[pos.symbol.toUpperCase()] = (holdings[pos.symbol.toUpperCase()] || 0) + pos.quantity
+          })
+        }
+        setPortfolio({
+          id: port.id,
+          balance: port.cash_balance,
+          holdings: holdings,
+          initial: port.starting_balance,
+          rawPositions: port.positions || []
+        })
+      }
+    } catch (err) {
+      console.error('Error fetching backend portfolio in Dashboard:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    const id = localStorage.getItem('tradewise_paper_portfolio_id')
+    if (id) {
+      fetchBackendPortfolio(id)
+      const interval = setInterval(() => {
+        fetchBackendPortfolio(id)
+      }, 5000)
+      return () => clearInterval(interval)
+    } else {
+      fetch('http://localhost:5000/api/v1/paper/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'TradeWise Paper Account', startingBalance: 10000 })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.portfolio) {
+          localStorage.setItem('tradewise_paper_portfolio_id', data.portfolio.id)
+          fetchBackendPortfolio(data.portfolio.id)
+        }
+      })
+      .catch(err => console.error('Failed to auto-create portfolio in Dashboard mount:', err))
+    }
+  }, [fetchBackendPortfolio])
+
+  const buyAsset = async () => {
     const lastCandle = candles[candles.length - 1]
     if (!lastCandle) return
+
+    const sym = activeSymbol.toUpperCase()
+    const validSymbols = ['AAPL', 'MSFT', 'GOOGL', 'BTC', 'ETH', 'EURUSD', 'GBPUSD']
+    if (!validSymbols.includes(sym)) {
+      alert(`Symbol "${activeSymbol}" is not supported in the Paper Trading engine. Supported symbols: ${validSymbols.join(', ')}`)
+      return
+    }
+
     const amount = portfolio.balance / lastCandle.close
-    if (amount <= 0) return
-    setPortfolio(prev => {
-      const currentHoldings = prev.holdings[activeSymbol] || 0
-      return {
-        ...prev,
-        holdings: {
-          ...prev.holdings,
-          [activeSymbol]: currentHoldings + amount
-        },
-        balance: 0
+    if (amount <= 0.0001) {
+      alert('Available balance is too low to purchase a valid quantity.')
+      return
+    }
+
+    try {
+      const res = await fetch('http://localhost:5000/api/v1/paper/positions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          portfolioId: portfolio.id,
+          symbol: sym,
+          quantity: amount
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        fetchBackendPortfolio(portfolio.id)
+      } else {
+        alert(data.error || 'Failed to place buy order')
       }
-    })
+    } catch (err) {
+      console.error('Failed to buy asset:', err)
+      alert('Error connecting to backend server.')
+    }
   }
 
-  const sellAsset = () => {
-    const lastCandle = candles[candles.length - 1]
-    const currentHoldings = portfolio.holdings[activeSymbol] || 0
-    if (!lastCandle || currentHoldings <= 0) return
-    const value = currentHoldings * lastCandle.close
-    setPortfolio(prev => {
-      const updatedHoldings = { ...prev.holdings }
-      delete updatedHoldings[activeSymbol]
-      return {
-        ...prev,
-        balance: prev.balance + value,
-        holdings: updatedHoldings
+  const sellAsset = async () => {
+    const sym = activeSymbol.toUpperCase()
+    const position = portfolio.rawPositions?.find(p => p.symbol === sym && p.side === 'BUY')
+    if (!position) {
+      alert(`No open BUY position found for ${sym}. You must own the asset first.`)
+      return
+    }
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/v1/paper/positions/${position.id}?portfolioId=${portfolio.id}`, {
+        method: 'DELETE'
+      })
+      const data = await res.json()
+      if (data.success) {
+        fetchBackendPortfolio(portfolio.id)
+      } else {
+        alert(data.error || 'Failed to close position')
       }
-    })
+    } catch (err) {
+      console.error('Failed to sell asset:', err)
+      alert('Error connecting to backend server.')
+    }
   }
 
   const lastCandle = candles[candles.length - 1]
@@ -486,6 +582,14 @@ export default function Dashboard() {
             <BookOpen size={12} />
             Learning Hub
           </button>
+          <button
+            onClick={() => setActiveTab('paper')}
+            className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5
+              ${activeTab === 'paper' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Briefcase size={12} />
+            Paper Trading
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -504,6 +608,17 @@ export default function Dashboard() {
           <button onClick={() => loadSymbol(activeSymbol)} className="p-1.5 rounded bg-surface-800 text-slate-400 hidden sm:block">
             <RefreshCw size={14} />
           </button>
+          
+          <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block" />
+          <div className="flex items-center gap-2">
+            <img src={user?.avatar} alt={user?.name} className="w-7 h-7 rounded-full border border-slate-700 bg-slate-800 hidden md:block" />
+            <button 
+              onClick={handleLogout}
+              className="p-1.5 rounded hover:text-red-400 text-slate-400 bg-surface-800 border border-slate-700 hover:border-red-500/30 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <LogOut size={12} /> <span className="hidden sm:inline">Log Out</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -802,6 +917,22 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+              </motion.div>
+            )}
+
+            {activeTab === 'paper' && (
+              <motion.div
+                key="paper-trading"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="w-full"
+              >
+                <PaperTradingTab
+                  activeSymbol={activeSymbol}
+                  lastCandlePrice={lastCandle ? lastCandle.close : null}
+                  onRefreshPortfolio={() => portfolio.id && fetchBackendPortfolio(portfolio.id)}
+                />
               </motion.div>
             )}
 
