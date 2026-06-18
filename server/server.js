@@ -24,3 +24,6 @@ app.listen(PORT, () => {
   console.log(`\n🕯️  TradeWise API running on http://localhost:${PORT}\n`)
   console.log(`📊  Paper Trading API: http://localhost:${PORT}/api/v1/paper\n`)
 })
+
+export default app
+

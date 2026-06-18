@@ -30,7 +30,9 @@ let _db = null
 export function getDb() {
   if (!_db) {
     _db = new Database(DB_PATH)
-    _db.pragma('journal_mode = WAL')   // Better concurrent read performance
+    if (!isVercel) {
+      _db.pragma('journal_mode = WAL')   // Better concurrent read performance
+    }
     _db.pragma('foreign_keys = ON')    // Enforce referential integrity
   }
   return _db
