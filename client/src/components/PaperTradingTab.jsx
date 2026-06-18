@@ -81,6 +81,34 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
     }
   }, [onRefreshPortfolio])
 
+  const initPortfolio = useCallback(async () => {
+    if (!portfolioId) return
+    setLoading(true)
+    try {
+      setError(null)
+      // Check if portfolio exists
+      const res = await fetch(`${API_BASE}/portfolio/${portfolioId}`)
+      if (res.status === 404) {
+        // Auto-create for this user ID
+        await fetch(`${API_BASE}/portfolio`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            id: portfolioId, 
+            name: `${user?.name || 'TradeWise'}'s Paper Account`, 
+            startingBalance: 10000 
+          })
+        })
+      }
+      await fetchAllData(portfolioId)
+    } catch (err) {
+      console.error('Initial load failed:', err)
+      setError('Could not connect to the database. Make sure the server is running.')
+    } finally {
+      setLoading(false)
+    }
+  }, [portfolioId, fetchAllData, user])
+
   // Initial load
   useEffect(() => {
     if (!portfolioId) {
@@ -88,40 +116,14 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
       return
     }
 
-    const loadAndInit = async () => {
-      try {
-        setError(null)
-        // Check if portfolio exists
-        const res = await fetch(`${API_BASE}/portfolio/${portfolioId}`)
-        if (res.status === 404) {
-          // Auto-create for this user ID
-          await fetch(`${API_BASE}/portfolio`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-              id: portfolioId, 
-              name: `${user?.name || 'TradeWise'}'s Paper Account`, 
-              startingBalance: 10000 
-            })
-          })
-        }
-        await fetchAllData(portfolioId)
-      } catch (err) {
-        console.error('Initial load failed:', err)
-        setError('Could not connect to the database. Make sure the server is running.')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadAndInit()
+    initPortfolio()
 
     // Polling updates
     const interval = setInterval(() => {
       fetchAllData(portfolioId)
     }, 4000)
     return () => clearInterval(interval)
-  }, [portfolioId, fetchAllData, user])
+  }, [portfolioId, fetchAllData, initPortfolio])
 
   // Place a trade
   const handlePlaceOrder = async (e) => {
