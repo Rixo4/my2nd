@@ -33,8 +33,8 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: '#f97316', width: 1, style: 2, labelBackgroundColor: '#f97316' },
-        horzLine: { color: '#f97316', width: 1, style: 2, labelBackgroundColor: '#f97316' },
+        vertLine: { color: '#1e40af', width: 1, style: 2, labelBackgroundColor: '#1e40af' },
+        horzLine: { color: '#1e40af', width: 1, style: 2, labelBackgroundColor: '#1e40af' },
       },
       handleScroll: {
         mouseWheel: true,
@@ -128,11 +128,11 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
       seriesRef.current.setData(data)
 
       if (showPatterns && patterns.length > 0) {
-        const allMarkers = []
+        const markersMap = new Map()
         patterns.slice(0, 30).forEach(p => {
           p.times.forEach((t, idx) => {
             const isLast = idx === p.times.length - 1
-            allMarkers.push({
+            const newMarker = {
               time: t,
               position: p.signal === 'bullish' ? 'belowBar' : p.signal === 'bearish' ? 'aboveBar' : 'inBar',
               color: p.signal === 'bullish' ? 'rgba(34, 197, 94, 0.8)' : p.signal === 'bearish' ? 'rgba(239, 68, 68, 0.8)' : 'rgba(245, 158, 11, 0.8)',
@@ -141,9 +141,13 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
                 : 'square',
               text: isLast ? p.pattern : '',
               size: isLast ? 1.2 : 0.6,
-            })
+            }
+            if (!markersMap.has(t) || isLast) {
+              markersMap.set(t, newMarker)
+            }
           })
         })
+        const allMarkers = Array.from(markersMap.values()).sort((a, b) => a.time - b.time)
         seriesRef.current.setMarkers(allMarkers)
       } else {
         seriesRef.current.setMarkers([])
@@ -171,7 +175,7 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
         if (d.points.length < 2) return
         
         const lineSeries = chartRef.current.addLineSeries({
-          color: d.type === 'box' ? 'rgba(249, 115, 22, 0.5)' : '#f97316',
+          color: d.type === 'box' ? 'rgba(30, 64, 175, 0.5)' : '#1e40af',
           lineWidth: 2,
           lineStyle: 0,
         })

@@ -5,9 +5,9 @@ export default {
     extend: {
       colors: {
         brand: {
-          400: '#fb923c',
-          500: '#f97316',
-          600: '#ea580c',
+          400: '#2563eb',
+          500: '#1e40af',
+          600: '#1e3a8a',
         },
         surface: {
           900: '#08080f',
@@ -22,8 +22,8 @@ export default {
         mono: ['JetBrains Mono', 'monospace'],
       },
       backgroundImage: {
-        'grid-pattern': "radial-gradient(circle at 1px 1px, rgba(249,115,22,0.08) 1px, transparent 0)",
-        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(249,115,22,0.15) 0%, transparent 60%)',
+        'grid-pattern': "radial-gradient(circle at 1px 1px, rgba(30,64,175,0.08) 1px, transparent 0)",
+        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(30,64,175,0.15) 0%, transparent 60%)',
       },
       animation: {
         'float': 'float 6s ease-in-out infinite',
@@ -36,8 +36,8 @@ export default {
           '50%': { transform: 'translateY(-10px)' },
         },
         glowPulse: {
-          '0%': { boxShadow: '0 0 20px rgba(249,115,22,0.2)' },
-          '100%': { boxShadow: '0 0 40px rgba(249,115,22,0.5)' },
+          '0%': { boxShadow: '0 0 20px rgba(30,64,175,0.2)' },
+          '100%': { boxShadow: '0 0 40px rgba(30,64,175,0.5)' },
         },
         slideUp: {
           '0%': { opacity: '0', transform: 'translateY(20px)' },

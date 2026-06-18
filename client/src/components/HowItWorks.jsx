@@ -8,7 +8,7 @@ const STEPS = [
     title: 'Select Your Market',
     desc: 'Choose from equities, forex, or crypto. Pick your preferred timeframe — from 5-minute intraday to weekly swing setups.',
     color: 'text-brand-400',
-    glow: 'rgba(249,115,22,0.3)',
+    glow: 'rgba(30, 64, 175, 0.3)',
   },
   {
     icon: ScanSearch,

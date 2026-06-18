@@ -23,7 +23,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center
-                            group-hover:shadow-[0_0_16px_rgba(249,115,22,0.5)] transition-shadow duration-300">
+                            group-hover:shadow-[0_0_16px_rgba(30, 64, 175, 0.5)] transition-shadow duration-300">
               <BarChart2 size={18} className="text-white" />
             </div>
             <span className="text-white font-bold text-lg tracking-tight">

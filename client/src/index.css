@@ -11,13 +11,13 @@
   }
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: #0d0d18; }
-  ::-webkit-scrollbar-thumb { background: #f97316; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: #1e40af; border-radius: 3px; }
 }
 
 @layer components {
   .btn-primary {
     @apply bg-brand-500 hover:bg-brand-400 text-white font-semibold px-6 py-3 rounded-xl
-           transition-all duration-300 hover:shadow-[0_0_24px_rgba(249,115,22,0.5)]
+           transition-all duration-300 hover:shadow-[0_0_24px_rgba(30,64,175,0.5)]
            active:scale-95 inline-flex items-center gap-2;
   }
   .btn-secondary {
@@ -30,7 +30,7 @@
   }
   .card-hover {
     @apply card transition-all duration-300 hover:border-brand-500/40
-           hover:shadow-[0_0_30px_rgba(249,115,22,0.08)];
+           hover:shadow-[0_0_30px_rgba(30,64,175,0.08)];
   }
   .badge {
     @apply text-xs font-semibold px-2.5 py-1 rounded-full;
@@ -42,10 +42,10 @@
     @apply text-brand-500 text-xs font-bold tracking-[0.2em] uppercase;
   }
   .glow-text {
-    text-shadow: 0 0 40px rgba(249, 115, 22, 0.6);
+    text-shadow: 0 0 40px rgba(30, 64, 175, 0.6);
   }
   .gradient-text {
-    @apply bg-gradient-to-r from-brand-400 to-orange-300 bg-clip-text text-transparent;
+    @apply bg-gradient-to-r from-brand-400 to-blue-300 bg-clip-text text-transparent;
   }
   .input-field {
     @apply bg-surface-700 border border-slate-700 rounded-xl px-4 py-2.5 text-sm
@@ -59,7 +59,7 @@
 
 /* Animated background grid */
 .bg-grid {
-  background-image: radial-gradient(circle at 1px 1px, rgba(249,115,22,0.07) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, rgba(30,64,175,0.07) 1px, transparent 0);
   background-size: 40px 40px;
 }
 
@@ -76,9 +76,9 @@
 
 /* Glow ring for hero */
 .glow-ring {
-  box-shadow: 0 0 0 1px rgba(249,115,22,0.2),
-              0 0 40px rgba(249,115,22,0.15),
-              inset 0 0 40px rgba(249,115,22,0.05);
+  box-shadow: 0 0 0 1px rgba(30,64,175,0.2),
+              0 0 40px rgba(30,64,175,0.15),
+              inset 0 0 40px rgba(30,64,175,0.05);
 }
 
 /* Alert pulse */

@@ -28,7 +28,7 @@ export default function Login() {
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 justify-center mb-8 group">
           <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center
-                          group-hover:shadow-[0_0_20px_rgba(249,115,22,0.6)] transition-all duration-300">
+                          group-hover:shadow-[0_0_20px_rgba(30, 64, 175, 0.6)] transition-all duration-300">
             <BarChart2 size={24} className="text-white" />
           </div>
           <span className="text-white font-bold text-2xl tracking-tight">

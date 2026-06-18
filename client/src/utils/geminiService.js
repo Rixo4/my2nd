@@ -1,14 +1,14 @@
 /**
- * Gemini API Service for AI ChatBot
+ * Groq API Service for AI ChatBot
  */
 
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+const GROQ_API_KEY = import.meta.env.VITE_GROQ_API_KEY || '';
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 export async function generateGeminiResponse(prompt, context = '') {
-  if (!GEMINI_API_KEY) {
+  if (!GROQ_API_KEY) {
     return {
-      error: 'Gemini API key not configured. Please add VITE_GEMINI_API_KEY to your .env file.',
+      error: 'Groq API key not configured. Please add VITE_GROQ_API_KEY to your .env file.',
       response: null
     };
   }
@@ -22,31 +22,33 @@ export async function generateGeminiResponse(prompt, context = '') {
     
     ${context}`;
 
-    const fullPrompt = `${systemPrompt}\n\nUser: ${prompt}`;
-
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
       },
       body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: fullPrompt
-          }]
-        }],
-        generationConfig: {
-          temperature: 0.7,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: 1024,
-        },
+        model: 'llama-3.1-8b-instant',
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1024,
+        top_p: 0.95,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API Error Response:', errorText);
+      console.error('Groq API Error Response:', errorText);
       throw new Error(`API Error: ${response.status} - ${errorText}`);
     }
 
@@ -56,16 +58,16 @@ export async function generateGeminiResponse(prompt, context = '') {
       throw new Error(data.error.message || 'API returned an error');
     }
 
-    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated';
+    const generatedText = data.choices?.[0]?.message?.content || 'No response generated';
 
     return {
       error: null,
       response: generatedText
     };
   } catch (error) {
-    console.error('Gemini API Error:', error);
+    console.error('Groq API Error:', error);
     return {
-      error: error.message || 'Failed to connect to Gemini API',
+      error: error.message || 'Failed to connect to Groq API',
       response: null
     };
   }
