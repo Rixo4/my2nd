@@ -34,7 +34,7 @@ export default function Footer() {
                 <BarChart2 size={18} className="text-white" />
               </div>
               <span className="text-white font-bold text-lg tracking-tight">
-                CHART<span className="text-brand-500">IFY</span>
+                Trade<span className="text-brand-500">Wise</span>
               </span>
             </Link>
             <p className="text-slate-500 text-sm leading-relaxed max-w-xs mb-6">

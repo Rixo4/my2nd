@@ -92,7 +92,7 @@ export default function Login() {
             <BarChart2 size={24} className="text-white" />
           </div>
           <span className="text-white font-bold text-2xl tracking-tight">
-            CHART<span className="text-brand-500">IFY</span>
+            Trade<span className="text-brand-500">Wise</span>
           </span>
         </div>
 
