@@ -97,7 +97,7 @@ export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggle
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 bg-surface-900 border border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col transition-all duration-300 ${isExpanded ? 'w-[500px] h-[600px]' : 'w-[380px] h-[500px]'}`}>
+    <div className={`fixed bottom-6 right-6 bg-surface-900 border border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col transition-all duration-300 max-w-[calc(100vw-2rem)] ${isExpanded ? 'w-[500px] h-[calc(100vh-48px)] max-h-[600px]' : 'w-[380px] h-[calc(100vh-80px)] max-h-[500px]'}`}>
       {/* Header */}
       <div className="bg-gradient-to-r from-brand-600 to-brand-500 p-4 rounded-t-2xl flex items-center justify-between">
         <div className="flex items-center gap-3">
