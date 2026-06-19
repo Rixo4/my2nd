@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000
 // Initialize SQLite paper trading database
 initDatabase()
 
-app.use(cors({ origin: 'http://localhost:3000' }))
+app.use(cors({ origin: ['http://localhost:3000', 'http://localhost:3001'] }))
 app.use(express.json())
 
 app.get('/api/health', (req, res) => {

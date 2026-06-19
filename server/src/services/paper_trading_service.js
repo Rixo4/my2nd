@@ -60,8 +60,8 @@ export function getPortfolioSummary(portfolioId) {
  * @param {{ portfolioId: string, symbol: string, quantity: number }} params
  * @returns {{ success: boolean, position?: object, trade?: object, error?: string }}
  */
-export function openNewPosition({ portfolioId, symbol, quantity }) {
-  return openPosition({ portfolioId, symbol, quantity })
+export function openNewPosition({ portfolioId, symbol, quantity, overridePrice }) {
+  return openPosition({ portfolioId, symbol, quantity, overridePrice })
 }
 
 /**
@@ -69,8 +69,8 @@ export function openNewPosition({ portfolioId, symbol, quantity }) {
  * @param {{ portfolioId: string, positionId: string }} params
  * @returns {{ success: boolean, position?: object, trade?: object, error?: string }}
  */
-export function closeExistingPosition({ portfolioId, positionId }) {
-  return closePosition({ portfolioId, positionId })
+export function closeExistingPosition({ portfolioId, positionId, overridePrice }) {
+  return closePosition({ portfolioId, positionId, overridePrice })
 }
 
 // ─── Trades ───────────────────────────────────────────────────────────────────

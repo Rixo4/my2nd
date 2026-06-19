@@ -17,3 +17,4 @@ lerna-debug.log*
 *.db-wal
 data/
 server/data/
+scratch_steps.txt

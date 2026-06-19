@@ -27,13 +27,13 @@ import { OrderSide } from '../common/enums.js'
  * @param {number} params.quantity
  * @returns {{ success: boolean, position?: object, trade?: object, error?: string }}
  */
-export function openPosition({ portfolioId, symbol, quantity }) {
+export function openPosition({ portfolioId, symbol, quantity, overridePrice }) {
   // 1. Load portfolio
   const portfolio = getPortfolio(portfolioId)
   if (!portfolio) return { success: false, error: 'Portfolio not found.' }
 
-  // 2. Get estimated market price for validation
-  const estimatedPrice = getCurrentMarketPrice(symbol.toUpperCase())
+  // 2. Get price — use live overridePrice from route, fallback to local data
+  const estimatedPrice = overridePrice || getCurrentMarketPrice(symbol.toUpperCase())
   if (!estimatedPrice) {
     return { success: false, error: `No market data available for ${symbol}.` }
   }
@@ -49,11 +49,12 @@ export function openPosition({ portfolioId, symbol, quantity }) {
   )
   if (!validation.valid) return { success: false, error: validation.error }
 
-  // 5. Execute the buy
-  const fill = executeBuyOrder({ symbol: symbol.toUpperCase(), quantity })
+  // 5. Execute the buy using the live price
+  const fillPrice = roundPrice(estimatedPrice, 6)
+  const totalCost = roundPrice(fillPrice * quantity)
 
   // 6. Deduct cost from cash balance
-  const newBalance = roundPrice(portfolio.cash_balance - fill.totalCost)
+  const newBalance = roundPrice(portfolio.cash_balance - totalCost)
   updatePortfolioBalance(portfolioId, newBalance)
 
   // 7. Create the position record
@@ -61,8 +62,8 @@ export function openPosition({ portfolioId, symbol, quantity }) {
     portfolioId,
     symbol: symbol.toUpperCase(),
     side: OrderSide.BUY,
-    quantity: fill.quantity,
-    entryPrice: fill.fillPrice,
+    quantity,
+    entryPrice: fillPrice,
   })
 
   // 8. Record the trade
@@ -72,13 +73,14 @@ export function openPosition({ portfolioId, symbol, quantity }) {
     symbol: symbol.toUpperCase(),
     side: OrderSide.BUY,
     tradeType: 'MARKET',
-    quantity: fill.quantity,
-    price: fill.fillPrice,
-    totalValue: fill.totalCost,
+    quantity,
+    price: fillPrice,
+    totalValue: totalCost,
     pnl: 0,
     pnlPercent: 0,
   })
 
+  const fill = { fillPrice, quantity, totalCost }
   return { success: true, position, trade, fill }
 }
 
@@ -90,7 +92,7 @@ export function openPosition({ portfolioId, symbol, quantity }) {
  * @param {string} params.positionId
  * @returns {{ success: boolean, position?: object, trade?: object, error?: string }}
  */
-export function closePosition({ portfolioId, positionId }) {
+export function closePosition({ portfolioId, positionId, overridePrice }) {
   // 1. Load portfolio + position
   const portfolio = getPortfolio(portfolioId)
   if (!portfolio) return { success: false, error: 'Portfolio not found.' }
@@ -101,12 +103,16 @@ export function closePosition({ portfolioId, positionId }) {
   const validation = validateClosePosition(position, portfolioId)
   if (!validation.valid) return { success: false, error: validation.error }
 
-  // 3. Execute sell at current market price
-  const fill = executeSellOrder({
-    symbol: position.symbol,
-    quantity: position.quantity,
-    entryPrice: position.entry_price,
-  })
+  // 3. Use live price if provided, otherwise fall back to sync executor
+  const fillPrice = overridePrice
+    ? roundPrice(overridePrice, 6)
+    : roundPrice(getCurrentMarketPrice(position.symbol) || position.entry_price, 6)
+
+  const totalProceeds = roundPrice(fillPrice * position.quantity)
+  const pnl           = roundPrice((fillPrice - position.entry_price) * position.quantity)
+  const costBasis     = position.entry_price * position.quantity
+  const pnlPercent    = costBasis > 0 ? roundPrice((pnl / costBasis) * 100, 4) : 0
+  const fill = { fillPrice, quantity: position.quantity, totalProceeds, pnl, pnlPercent }
 
   // 4. Credit proceeds to cash balance
   const newBalance = roundPrice(portfolio.cash_balance + fill.totalProceeds)

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js",
+    "dev": "node --env-file=.env --watch server.js",
+    "start": "node --env-file=.env server.js",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit/test_paper_trading.js",
     "test:integration": "vitest run tests/integration/test_paper_trading_integration.js"

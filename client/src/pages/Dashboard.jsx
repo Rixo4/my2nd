@@ -123,11 +123,13 @@ export default function Dashboard() {
   const [isBeginner, setIsBeginner] = useState(false)
   const [showPatterns, setShowPatterns] = useState(true)
   const [trend, setTrend] = useState('Analyzing...')
+  const portfolioId = user?.uid || localStorage.getItem('tradewise_paper_portfolio_id')
+
   const [portfolio, setPortfolio] = useState({ 
     balance: 10000, 
     holdings: {}, 
     initial: 10000,
-    id: localStorage.getItem('tradewise_paper_portfolio_id'),
+    id: portfolioId,
     rawPositions: []
   })
   const [mobileView, setMobileView] = useState('chart') // 'chart', 'market', 'patterns', 'portfolio'
@@ -148,7 +150,20 @@ export default function Dashboard() {
   const fetchBackendPortfolio = useCallback(async (id) => {
     if (!id) return
     try {
-      const res = await fetch(`/api/v1/paper/portfolio/${id}`)
+      let res = await fetch(`/api/v1/paper/portfolio/${id}`)
+      if (res.status === 404) {
+        // Auto-create on 404 if the portfolio doesn't exist yet
+        await fetch('/api/v1/paper/portfolio', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: id,
+            name: user?.name ? `${user.name}'s Paper Account` : 'TradeWise Paper Account',
+            startingBalance: 10000
+          })
+        })
+        res = await fetch(`/api/v1/paper/portfolio/${id}`)
+      }
       const data = await res.json()
       if (data.success && data.portfolio) {
         const port = data.portfolio
@@ -169,17 +184,23 @@ export default function Dashboard() {
     } catch (err) {
       console.error('Error fetching backend portfolio in Dashboard:', err)
     }
-  }, [])
+  }, [user])
+
+  const handleRefreshPortfolio = useCallback(() => {
+    if (portfolioId) {
+      fetchBackendPortfolio(portfolioId)
+    }
+  }, [portfolioId, fetchBackendPortfolio])
 
   useEffect(() => {
-    const id = localStorage.getItem('tradewise_paper_portfolio_id')
-    if (id) {
-      fetchBackendPortfolio(id)
+    if (portfolioId) {
+      fetchBackendPortfolio(portfolioId)
       const interval = setInterval(() => {
-        fetchBackendPortfolio(id)
+        fetchBackendPortfolio(portfolioId)
       }, 5000)
       return () => clearInterval(interval)
     } else {
+      // If no portfolio ID exists at all (guest on fresh load)
       fetch('/api/v1/paper/portfolio', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -194,7 +215,7 @@ export default function Dashboard() {
       })
       .catch(err => console.error('Failed to auto-create portfolio in Dashboard mount:', err))
     }
-  }, [fetchBackendPortfolio])
+  }, [portfolioId, fetchBackendPortfolio])
 
   const buyAsset = async () => {
     const lastCandle = candles[candles.length - 1]
@@ -284,22 +305,38 @@ export default function Dashboard() {
   const loadSymbol = useCallback(async (sym) => {
     try {
       setLastUpdate('Loading...')
-      const isCrypto = ALL_SYMBOLS.find(s => s.id === sym)?.market === 'crypto'
-      
+      const symInfo = ALL_SYMBOLS.find(s => s.id === sym)
+      const isCrypto = symInfo?.market === 'crypto'
+
       let data = []
       let realTime = false
+
       if (isCrypto) {
+        // Crypto → Binance REST (free, no key)
         try {
           data = await BinanceService.getHistoricalData(sym + 'USDT', timeframe)
-          if (data && data.length > 0) {
-            realTime = true
-          }
+          if (data && data.length > 0) realTime = true
         } catch (err) {
-          console.error('Binance historical fetch failed, falling back to mock:', err)
+          console.error('Binance historical fetch failed, trying backend:', err)
         }
       }
-      
+
+      // Stocks & Forex → backend /api/market/ohlc (Twelve Data)
       if (!realTime || !data || data.length === 0) {
+        try {
+          const res = await fetch(`/api/market/ohlc/${sym}?timeframe=${timeframe}&limit=120`)
+          const json = await res.json()
+          if (json.success && json.data && json.data.length > 0) {
+            data = json.data
+            realTime = json.source !== 'mock'
+          }
+        } catch (err) {
+          console.error('Backend OHLC fetch failed, falling back to mock:', err)
+        }
+      }
+
+      // Final fallback → seeded mock data
+      if (!data || data.length === 0) {
         realTime = false
         data = [...(CANDLE_DATA[sym] || [])]
       }
@@ -315,6 +352,7 @@ export default function Dashboard() {
       setLastUpdate('Error loading data')
     }
   }, [timeframe])
+
 
   useEffect(() => {
     loadSymbol(activeSymbol)
@@ -931,7 +969,7 @@ export default function Dashboard() {
                 <PaperTradingTab
                   activeSymbol={activeSymbol}
                   lastCandlePrice={lastCandle ? lastCandle.close : null}
-                  onRefreshPortfolio={() => portfolio.id && fetchBackendPortfolio(portfolio.id)}
+                  onRefreshPortfolio={handleRefreshPortfolio}
                 />
               </motion.div>
             )}

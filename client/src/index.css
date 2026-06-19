@@ -86,3 +86,19 @@
   50% { opacity: 0.5; }
 }
 .alert-dot { animation: alertPulse 1.5s ease-in-out infinite; }
+
+/* Hide scrollbar utility */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Paper trading table */
+.pt-row:hover .pt-close-btn { opacity: 1; }
+
+/* Chainapex glow effects */
+.chainapex-glow-purple {
+  box-shadow: 0 0 40px rgba(124, 58, 237, 0.15), 0 0 80px rgba(124, 58, 237, 0.05);
+}
+.chainapex-glow-green {
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.2);
+}
+

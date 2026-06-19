@@ -15,6 +15,19 @@ export default {
           700: '#111120',
           600: '#16162e',
           500: '#1c1c38',
+        },
+        chainapex: {
+          bgPrimary: '#1a1a2e',
+          bgSecondary: '#16213e',
+          cardBg: '#0f3460',
+          textPrimary: '#ffffff',
+          textSecondary: '#a0a0a0',
+          textMuted: '#666666',
+          accentGreen: '#10b981',
+          accentRed: '#ef4444',
+          accentPurple: '#8b5cf6',
+          accentBlue: '#3b82f6',
+          border: '#374151',
         }
       },
       fontFamily: {
