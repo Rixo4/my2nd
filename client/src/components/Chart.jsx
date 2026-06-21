@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createChart, CrosshairMode } from 'lightweight-charts'
 import { Plus, Minus, Maximize2, PenTool, Square, Trash2, MousePointer2, Eye, EyeOff } from 'lucide-react'
 
-export default function Chart({ data, patterns = [], height = 420, showPatterns: propShowPatterns, onShowPatternsChange }) {
+export default function Chart({ data, patterns = [], height = 420, showPatterns: propShowPatterns, onShowPatternsChange, onChartClick }) {
   const containerRef = useRef(null)
   const chartRef = useRef(null)
   const seriesRef = useRef(null)
@@ -84,10 +84,16 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
 
     // Drawing Tool Interaction
     chart.subscribeClick((param) => {
-      if (!param.time || !param.point || drawingMode === 'view') return
+      if (!param.time || !param.point) return
 
       const price = series.coordinateToPrice(param.point.y)
       const time = param.time
+
+      if (onChartClick) {
+        onChartClick({ time, price })
+      }
+
+      if (drawingMode === 'view') return
 
       if (!isDrawing) {
         setIsDrawing(true)

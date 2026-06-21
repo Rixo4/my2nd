@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BarChart2, RefreshCw, Activity, BookOpen, Zap, AlertCircle, 
   TrendingUp, HelpCircle, Menu, X, Layout, Wallet, List, Bell, Search,
-  Bitcoin, Shield, Play, Check, ChevronRight, Briefcase, LogOut
+  Bitcoin, Shield, Play, Check, ChevronRight, Briefcase, LogOut, Scale
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import Chart from '../components/Chart'
@@ -16,6 +16,11 @@ import LearningCards from '../components/LearningCards'
 import RecommendationBox from '../components/RecommendationBox'
 import ChatBot from '../components/ChatBot'
 import PaperTradingTab from '../components/PaperTradingTab'
+import NewsSection from '../components/Dashboard/NewsSection'
+import AITradeRecommendations from '../components/Dashboard/AITradeRecommendations'
+import NewsPatternCorrelation from '../components/Dashboard/NewsPatternCorrelation'
+import AdaptiveLearningPath from '../components/Academy/AdaptiveLearningPath'
+import PatternTrainingMode from '../components/Academy/PatternTrainingMode'
 import { CANDLE_DATA, ALL_SYMBOLS, SYMBOLS, getNextCandle } from '../data/mockData'
 import { STOCK_MARKET_NEWS } from '../data/newsData'
 import { LEARNING_TOPICS } from '../data/learningData'
@@ -135,6 +140,7 @@ export default function Dashboard() {
   const [mobileView, setMobileView] = useState('chart') // 'chart', 'market', 'patterns', 'portfolio'
   const [selectedNews, setSelectedNews] = useState(null)
   const [activeTab, setActiveTab] = useState('terminal') // 'terminal', 'news', 'learning'
+  const [learningSubTab, setLearningSubTab] = useState('adaptive') // 'adaptive', 'spotter', 'traditional'
   const [newsSearch, setNewsSearch] = useState('')
   const [newsImpactFilter, setNewsImpactFilter] = useState('All')
   const [newsAssetFilter, setNewsAssetFilter] = useState('All')
@@ -278,6 +284,12 @@ export default function Dashboard() {
       console.error('Failed to sell asset:', err)
       alert('Error connecting to backend server.')
     }
+  }
+
+  const handleSelectSuggestion = (setup) => {
+    setActiveSymbol(setup.symbol)
+    setMobileView('chart')
+    setActiveTab('terminal')
   }
 
   const lastCandle = candles[candles.length - 1]
@@ -628,6 +640,14 @@ export default function Dashboard() {
             <Briefcase size={12} />
             Paper Trading
           </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5
+              ${activeTab === 'analytics' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
+          >
+            <Scale size={12} />
+            AI Correlation
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -673,117 +693,20 @@ export default function Dashboard() {
         <main className="flex-1 flex flex-col overflow-y-auto p-4 lg:p-6 pb-24 lg:pb-6">
           <AnimatePresence mode="wait">
             {activeTab === 'news' && (
-              <motion.div
-                key="news-hub"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="flex flex-col gap-6 max-w-6xl mx-auto w-full"
-              >
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6">
-                  <div>
-                    <h2 className="text-white text-xl font-bold tracking-tight mb-1">Global Market Intelligence</h2>
-                    <p className="text-slate-400 text-xs">Real-time updates, market sentiment, and asset impact analysis.</p>
-                  </div>
-
-                  {/* Search Bar */}
-                  <form onSubmit={handleNewsSearchSubmit} className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                    <input
-                      type="text"
-                      placeholder="Search news..."
-                      value={newsSearch}
-                      onChange={e => {
-                        setNewsSearch(e.target.value)
-                        if (e.target.value === '') {
-                          loadDefaultNews()
-                        }
-                      }}
-                      className="bg-surface-800 border border-slate-700 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-brand-500 transition-colors w-full sm:w-48"
-                    />
-                  </form>
-                </div>
-
-                {/* Categories & Sentiment Filters */}
-                <div className="flex flex-wrap items-center gap-4 justify-between">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Asset:</span>
-                    {['All', 'Stocks', 'Crypto', 'Forex'].map(assetOpt => (
-                      <button
-                        key={assetOpt}
-                        onClick={() => setNewsAssetFilter(assetOpt)}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all
-                          ${newsAssetFilter === assetOpt ? 'bg-brand-500 text-white shadow-sm' : 'bg-surface-800 text-slate-400 hover:text-white'}`}
-                      >
-                        {assetOpt}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Sentiment:</span>
-                    {['All', 'Bullish', 'Bearish', 'Neutral'].map(sentimentOpt => (
-                      <button
-                        key={sentimentOpt}
-                        onClick={() => setNewsImpactFilter(sentimentOpt)}
-                        className={`px-3 py-1 rounded-lg text-[10px] font-bold transition-all
-                          ${newsImpactFilter === sentimentOpt ? 'bg-brand-500 text-white shadow-sm' : 'bg-surface-800 text-slate-400 hover:text-white'}`}
-                      >
-                        {sentimentOpt}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* News Cards Grid */}
-                {filteredNews.length === 0 ? (
-                  <div className="text-center py-12 bg-surface-800/20 border border-slate-800 rounded-2xl">
-                    <p className="text-slate-400 text-xs">No articles found matching your search or filters.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {filteredNews.map(news => {
-                      const isBullish = news.impact === 'bullish'
-                      const isBearish = news.impact === 'bearish'
-                      const sentimentBadge = isBullish ? 'badge-bullish' : isBearish ? 'badge-bearish' : 'badge-neutral'
-                      return (
-                        <div
-                          key={news.id}
-                          className="bg-surface-800/40 border border-slate-800/60 rounded-2xl p-5 hover:border-slate-700/80 hover:shadow-lg transition-all duration-300 flex flex-col justify-between"
-                        >
-                          <div>
-                            <div className="flex items-center justify-between gap-4 mb-3">
-                              <span className="text-[9px] px-2 py-0.5 rounded border border-slate-700 bg-surface-700 font-black text-slate-300 uppercase">
-                                {news.symbol}
-                              </span>
-                              <span className="text-slate-500 text-[10px]">{news.timestamp}</span>
-                            </div>
-                            <h3 className="text-white text-sm font-bold mb-2 hover:text-brand-400 cursor-pointer transition-colors" onClick={() => setSelectedNews(news)}>
-                              {news.title}
-                            </h3>
-                            <p className="text-slate-400 text-xs line-clamp-2 leading-relaxed mb-4">
-                              {news.description}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3 border-t border-slate-800/50">
-                            <span className={sentimentBadge}>
-                              {news.impact}
-                            </span>
-                            <button
-                              onClick={() => setSelectedNews(news)}
-                              className="text-brand-400 hover:text-brand-300 text-xs font-bold transition-colors"
-                            >
-                              Read Analysis →
-                            </button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </motion.div>
+              <NewsSection
+                filteredNews={filteredNews}
+                newsSearch={newsSearch}
+                setNewsSearch={setNewsSearch}
+                handleNewsSearchSubmit={handleNewsSearchSubmit}
+                newsImpactFilter={newsImpactFilter}
+                setNewsImpactFilter={setNewsImpactFilter}
+                newsAssetFilter={newsAssetFilter}
+                setNewsAssetFilter={setNewsAssetFilter}
+                loadDefaultNews={loadDefaultNews}
+                newsLoading={newsLoading}
+                setActiveSymbol={setActiveSymbol}
+                setActiveTab={setActiveTab}
+              />
             )}
 
             {activeTab === 'learning' && (
@@ -807,154 +730,194 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Learning Progress Panel */}
-                <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex-1 flex flex-col gap-2">
-                    <span className="text-white font-bold text-sm">Your Learning Progress</span>
-                    <div className="w-full bg-slate-800/60 h-3 rounded-full overflow-hidden">
-                      <div 
-                        className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500 ease-out" 
-                        style={{ width: `${completionPercentage}%` }}
-                      />
-                    </div>
-                    <span className="text-slate-400 text-xs font-medium">{completionPercentage}% complete</span>
-                  </div>
-
-                  <div className="flex gap-8 items-center">
-                    <div className="text-center">
-                      <p className="text-white font-bold text-2xl leading-none">{completedModules}</p>
-                      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Done</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white font-bold text-2xl leading-none">{remainingModules}</p>
-                      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Remaining</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white font-bold text-2xl leading-none">{academyTracks.length}</p>
-                      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Tracks</p>
-                    </div>
-                  </div>
+                {/* Sub-tab selection */}
+                <div className="flex border-b border-slate-800 gap-4 mb-2">
+                  <button 
+                    onClick={() => setLearningSubTab('adaptive')} 
+                    className={`pb-2 px-1 text-xs font-bold transition-all border-b-2 ${
+                      learningSubTab === 'adaptive' ? 'text-purple-400 border-purple-500' : 'text-slate-500 border-transparent hover:text-white'
+                    }`}
+                  >
+                    AI Lessons & Quizzes
+                  </button>
+                  <button 
+                    onClick={() => setLearningSubTab('spotter')} 
+                    className={`pb-2 px-1 text-xs font-bold transition-all border-b-2 ${
+                      learningSubTab === 'spotter' ? 'text-purple-400 border-purple-500' : 'text-slate-500 border-transparent hover:text-white'
+                    }`}
+                  >
+                    Pattern Spotter game
+                  </button>
+                  <button 
+                    onClick={() => setLearningSubTab('traditional')} 
+                    className={`pb-2 px-1 text-xs font-bold transition-all border-b-2 ${
+                      learningSubTab === 'traditional' ? 'text-purple-400 border-purple-500' : 'text-slate-500 border-transparent hover:text-white'
+                    }`}
+                  >
+                    Video Courses
+                  </button>
                 </div>
 
-                {/* Workspace Two-Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-                  
-                  {/* Left Column: Sidebar Tracks */}
-                  <div className="flex flex-col gap-3 lg:col-span-1">
-                    {academyTracks.map(track => {
-                      const IconComponent = IconMap[track.icon] || BookOpen
-                      const isActive = track.id === activeTrackId
-                      const completedCount = track.modules.filter(m => m.completed).length
-                      const totalCount = track.modules.length
+                {learningSubTab === 'adaptive' && (
+                  <AdaptiveLearningPath userId={portfolioId} />
+                )}
 
-                      return (
-                        <button
-                          key={track.id}
-                          onClick={() => setActiveTrackId(track.id)}
-                          className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all duration-300 group
-                            ${isActive 
-                              ? 'border-emerald-500/60 bg-emerald-500/5 shadow-md shadow-emerald-500/5' 
-                              : 'border-slate-800/60 bg-slate-900/20 hover:border-slate-700/80 hover:bg-slate-900/40'}`}
-                        >
-                          <div className="flex items-center gap-3.5">
-                            <div className={`p-2.5 rounded-xl border transition-all duration-300
-                              ${isActive
-                                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
-                                : 'border-slate-800 bg-slate-900/55 text-slate-400 group-hover:text-slate-300'}`}
-                            >
-                              <IconComponent size={18} />
-                            </div>
-                            <div className="flex flex-col">
-                              <span className={`text-sm font-bold tracking-wide transition-colors
-                                ${isActive ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
-                                {track.name}
-                              </span>
-                              <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                                {completedCount}/{totalCount}
-                              </span>
-                            </div>
-                          </div>
-                          <ChevronRight 
-                            size={16} 
-                            className={`transition-all duration-300
-                              ${isActive 
-                                ? 'text-emerald-400 translate-x-0.5' 
-                                : 'text-slate-600 group-hover:text-slate-400'}`} 
+                {learningSubTab === 'spotter' && (
+                  <PatternTrainingMode userId={portfolioId} chartData={candles} activePatterns={patterns} onAwardXp={handleRefreshPortfolio} />
+                )}
+
+                {learningSubTab === 'traditional' && (
+                  <>
+                    {/* Learning Progress Panel */}
+                    <div className="bg-slate-900/40 border border-slate-800/80 p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex-1 flex flex-col gap-2">
+                        <span className="text-white font-bold text-sm">Your Learning Progress</span>
+                        <div className="w-full bg-slate-800/60 h-3 rounded-full overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-cyan-500 to-blue-500 h-full rounded-full transition-all duration-500 ease-out" 
+                            style={{ width: `${completionPercentage}%` }}
                           />
-                        </button>
-                      )
-                    })}
-                  </div>
-
-                  {/* Right Column: Modules List */}
-                  <div className="lg:col-span-3 bg-slate-900/20 border border-slate-800/60 rounded-2xl p-6 flex flex-col gap-6">
-                    
-                    {/* Active Track Header */}
-                    <div className="flex items-center gap-4 pb-4 border-b border-slate-800/60">
-                      <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
-                        {(() => {
-                          const ActiveIcon = IconMap[activeTrack.icon] || BookOpen
-                          return <ActiveIcon size={22} />
-                        })()}
-                      </div>
-                      <div className="flex flex-col">
-                        <h3 className="text-white text-xl font-bold">{activeTrack.name}</h3>
-                        <p className="text-slate-400 text-xs mt-0.5">
-                          {activeTrack.modules.filter(m => m.completed).length} of {activeTrack.modules.length} completed
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Active Track Modules List */}
-                    <div className="flex flex-col gap-3">
-                      {activeTrack.modules.map((mod, index) => (
-                        <div
-                          key={mod.id}
-                          className="flex items-center justify-between p-4 rounded-xl border border-slate-800/40 bg-slate-900/30 hover:border-slate-800 transition-colors"
-                        >
-                          <div className="flex items-center gap-4">
-                            {/* Completion Indicator Circle */}
-                            <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 text-[11px] font-bold
-                              ${mod.completed 
-                                ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' 
-                                : 'border-emerald-500/30 text-emerald-400/80 bg-emerald-500/5'}`}
-                            >
-                              {mod.completed ? (
-                                <Check size={12} className="text-emerald-400" />
-                              ) : (
-                                <span>{index + 1}</span>
-                              )}
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <span className="text-white text-sm font-semibold tracking-wide">
-                                {mod.title}
-                              </span>
-                              <div className="flex items-center gap-1.5 text-slate-500">
-                                <span className="text-[10px] font-medium">{mod.duration}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Action Button */}
-                          <a
-                            href={mod.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={() => handleModuleAction(activeTrack.id, mod.id)}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-1.5 border shadow-sm
-                              ${mod.completed
-                                ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30'
-                                : 'border-emerald-500/80 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-500'}`}
-                          >
-                            <Play size={12} fill="currentColor" className="shrink-0" />
-                            <span>{mod.completed ? 'Rewatch' : 'Start'}</span>
-                          </a>
                         </div>
-                      ))}
+                        <span className="text-slate-400 text-xs font-medium">{completionPercentage}% complete</span>
+                      </div>
+
+                      <div className="flex gap-8 items-center">
+                        <div className="text-center">
+                          <p className="text-white font-bold text-2xl leading-none">{completedModules}</p>
+                          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Done</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-white font-bold text-2xl leading-none">{remainingModules}</p>
+                          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Remaining</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-white font-bold text-2xl leading-none">{academyTracks.length}</p>
+                          <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider mt-1">Tracks</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+
+                    {/* Workspace Two-Column Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+                      
+                      {/* Left Column: Sidebar Tracks */}
+                      <div className="flex flex-col gap-3 lg:col-span-1">
+                        {academyTracks.map(track => {
+                          const IconComponent = IconMap[track.icon] || BookOpen
+                          const isActive = track.id === activeTrackId
+                          const completedCount = track.modules.filter(m => m.completed).length
+                          const totalCount = track.modules.length
+
+                          return (
+                            <button
+                              key={track.id}
+                              onClick={() => setActiveTrackId(track.id)}
+                              className={`flex items-center justify-between p-3.5 rounded-xl border text-left transition-all duration-300 group
+                                ${isActive 
+                                  ? 'border-emerald-500/60 bg-emerald-500/5 shadow-md shadow-emerald-500/5' 
+                                  : 'border-slate-800/60 bg-slate-900/20 hover:border-slate-700/80 hover:bg-slate-900/40'}`}
+                            >
+                              <div className="flex items-center gap-3.5">
+                                <div className={`p-2.5 rounded-xl border transition-all duration-300
+                                  ${isActive
+                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'
+                                    : 'border-slate-800 bg-slate-900/55 text-slate-400 group-hover:text-slate-300'}`}
+                                >
+                                  <IconComponent size={18} />
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className={`text-sm font-bold tracking-wide transition-colors
+                                    ${isActive ? 'text-white' : 'text-slate-300 group-hover:text-white'}`}>
+                                    {track.name}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                                    {completedCount}/{totalCount}
+                                  </span>
+                                </div>
+                              </div>
+                              <ChevronRight 
+                                size={16} 
+                                className={`transition-all duration-300
+                                  ${isActive 
+                                    ? 'text-emerald-400 translate-x-0.5' 
+                                    : 'text-slate-600 group-hover:text-slate-400'}`} 
+                              />
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Right Column: Modules List */}
+                      <div className="lg:col-span-3 bg-slate-900/20 border border-slate-800/60 rounded-2xl p-6 flex flex-col gap-6">
+                        
+                        {/* Active Track Header */}
+                        <div className="flex items-center gap-4 pb-4 border-b border-slate-800/60">
+                          <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">
+                            {(() => {
+                              const ActiveIcon = IconMap[activeTrack.icon] || BookOpen
+                              return <ActiveIcon size={22} />
+                            })()}
+                          </div>
+                          <div className="flex flex-col">
+                            <h3 className="text-white text-xl font-bold">{activeTrack.name}</h3>
+                            <p className="text-slate-400 text-xs mt-0.5">
+                              {activeTrack.modules.filter(m => m.completed).length} of {activeTrack.modules.length} completed
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Active Track Modules List */}
+                        <div className="flex flex-col gap-3">
+                          {activeTrack.modules.map((mod, index) => (
+                            <div
+                              key={mod.id}
+                              className="flex items-center justify-between p-4 rounded-xl border border-slate-800/40 bg-slate-900/30 hover:border-slate-800 transition-colors"
+                            >
+                              <div className="flex items-center gap-4">
+                                {/* Completion Indicator Circle */}
+                                <div className={`w-6 h-6 rounded-full border flex items-center justify-center shrink-0 text-[11px] font-bold
+                                  ${mod.completed 
+                                    ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-400' 
+                                    : 'border-emerald-500/30 text-emerald-400/80 bg-emerald-500/5'}`}
+                                >
+                                  {mod.completed ? (
+                                    <Check size={12} className="text-emerald-400" />
+                                  ) : (
+                                    <span>{index + 1}</span>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-col gap-1">
+                                  <span className="text-white text-sm font-semibold tracking-wide">
+                                    {mod.title}
+                                  </span>
+                                  <div className="flex items-center gap-1.5 text-slate-500">
+                                    <span className="text-[10px] font-medium">{mod.duration}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Action Button */}
+                              <a
+                                href={mod.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => handleModuleAction(activeTrack.id, mod.id)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all duration-300 flex items-center gap-1.5 border shadow-sm
+                                  ${mod.completed
+                                    ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30'
+                                    : 'border-emerald-500/80 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-slate-950 hover:border-emerald-500'}`}
+                              >
+                                <Play size={12} fill="currentColor" className="shrink-0" />
+                                <span>{mod.completed ? 'Rewatch' : 'Start'}</span>
+                              </a>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </motion.div>
             )}
 
@@ -974,12 +937,31 @@ export default function Dashboard() {
               </motion.div>
             )}
 
+            {activeTab === 'analytics' && (
+              <motion.div
+                key="analytics"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="max-w-6xl mx-auto w-full flex flex-col gap-6"
+              >
+                <div className="border-b border-slate-800/80 pb-4">
+                  <h2 className="text-white text-3xl font-extrabold tracking-tight mb-1">AI Correlation Analysis</h2>
+                  <p className="text-slate-400 text-xs">Analyze how real-time news sentiment impacts technical pattern success rates</p>
+                </div>
+                
+                <NewsPatternCorrelation portfolioId={portfolioId} />
+              </motion.div>
+            )}
+
             {activeTab === 'terminal' && mobileView === 'chart' && (
               <motion.div 
                 key="chart"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="flex flex-col gap-4"
+                className="flex flex-col gap-5"
               >
+                <AITradeRecommendations portfolioId={portfolioId} onQuickSelect={handleSelectSuggestion} />
+
                 {lastCandle && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {['Open', 'High', 'Low', 'Close'].map(l => (
@@ -1101,30 +1083,34 @@ export default function Dashboard() {
         )}
 
         {/* Mobile Bottom Navigation */}
-        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface-900 border-t border-slate-800 flex items-center justify-around px-2 z-50 lg:hidden shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-          <button onClick={() => { setActiveTab('terminal'); setMobileView('market'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'terminal' && mobileView === 'market' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <List size={18} />
-            <span className="text-[7.5px] font-bold uppercase">Market</span>
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-surface-900 border-t border-slate-800 flex items-center justify-around px-0.5 z-50 lg:hidden shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+          <button onClick={() => { setActiveTab('terminal'); setMobileView('market'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'terminal' && mobileView === 'market' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <List size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Market</span>
           </button>
-          <button onClick={() => { setActiveTab('terminal'); setMobileView('chart'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'terminal' && mobileView === 'chart' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <Layout size={18} />
-            <span className="text-[7.5px] font-bold uppercase">Chart</span>
+          <button onClick={() => { setActiveTab('terminal'); setMobileView('chart'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'terminal' && mobileView === 'chart' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <Layout size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Chart</span>
           </button>
-          <button onClick={() => { setActiveTab('terminal'); setMobileView('patterns'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'terminal' && mobileView === 'patterns' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <Bell size={18} />
-            <span className="text-[7.5px] font-bold uppercase">Signals</span>
+          <button onClick={() => { setActiveTab('terminal'); setMobileView('patterns'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'terminal' && mobileView === 'patterns' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <Bell size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Signals</span>
           </button>
-          <button onClick={() => { setActiveTab('news'); setMobileView('news'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'news' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <Activity size={18} />
-            <span className="text-[7.5px] font-bold uppercase">News</span>
+          <button onClick={() => { setActiveTab('news'); setMobileView('news'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'news' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <Activity size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">News</span>
           </button>
-          <button onClick={() => { setActiveTab('learning'); setMobileView('learning'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'learning' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <BookOpen size={18} />
-            <span className="text-[7.5px] font-bold uppercase">Academy</span>
+          <button onClick={() => { setActiveTab('analytics'); setMobileView('analytics'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'analytics' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <Scale size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Analytics</span>
           </button>
-          <button onClick={() => { setActiveTab('terminal'); setMobileView('portfolio'); }} className={`flex flex-col items-center gap-1 ${activeTab === 'terminal' && mobileView === 'portfolio' ? 'text-brand-500' : 'text-slate-500'}`}>
-            <Wallet size={18} />
-            <span className="text-[7.5px] font-bold uppercase">Wallet</span>
+          <button onClick={() => { setActiveTab('learning'); setMobileView('learning'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'learning' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <BookOpen size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Academy</span>
+          </button>
+          <button onClick={() => { setActiveTab('terminal'); setMobileView('portfolio'); }} className={`flex-1 flex flex-col items-center gap-1 min-w-0 ${activeTab === 'terminal' && mobileView === 'portfolio' ? 'text-brand-500' : 'text-slate-500'}`}>
+            <Wallet size={15} />
+            <span className="text-[6.5px] xs:text-[7.5px] font-bold uppercase tracking-tight truncate w-full text-center">Wallet</span>
           </button>
         </nav>
       </div>
@@ -1230,6 +1216,7 @@ export default function Dashboard() {
         trend={trend}
         isMinimized={isChatBotMinimized}
         onToggleMinimize={() => setIsChatBotMinimized(!isChatBotMinimized)}
+        portfolioId={portfolioId}
       />
     </div>
   )

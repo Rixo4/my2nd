@@ -90,3 +90,49 @@ export async function generateTradingInsight(symbol, patterns, trend) {
 
   return generateGeminiResponse(prompt, context);
 }
+
+export async function generateNewsSummary(newsItem) {
+  const context = `
+    News Details:
+    - Title: ${newsItem.title}
+    - Description: ${newsItem.description}
+    - Asset: ${newsItem.symbol}
+    - Sentiment: ${newsItem.impact}
+  `;
+  const prompt = `Please provide a professional, structured, and insightful AI Summary of this financial news.
+  Include:
+  1. **Market Event**: A concise overview of the event.
+  2. **Market Impact**: The potential impact on the asset ${newsItem.symbol} or general market sentiment.
+  3. **Key Levels to Monitor**: Key support/resistance levels, indicators, or timelines.
+  4. **Outlook & Action**: Next developments or tactical considerations for traders.
+  
+  Format it with bold subheadings and short bullet points. Start directly with the summary, keeping it premium and concise.
+  End with a small disclaimer that this is educational only.`;
+  
+  return generateGeminiResponse(prompt, context);
+}
+
+export async function generateNewsChatResponse(newsItem, userQuery, chatHistory) {
+  const historyContext = chatHistory
+    .slice(-6)
+    .map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+    .join('\n');
+    
+  const context = `
+    News Context:
+    - Title: ${newsItem.title}
+    - Description: ${newsItem.description}
+    - Asset: ${newsItem.symbol}
+    - Sentiment: ${newsItem.impact}
+    
+    Recent Chat History:
+    ${historyContext}
+  `;
+  const prompt = `The user is asking a follow-up question: "${userQuery}" about this news event. 
+  Answer their question clearly, concisely, and professionally as TradeWise AI. 
+  Focus on the trading implications, technical levels, and news facts. 
+  Keep your response strictly under 3-4 sentences. Do not use placeholders.`;
+  
+  return generateGeminiResponse(prompt, context);
+}
+

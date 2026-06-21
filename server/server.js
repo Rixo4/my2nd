@@ -2,6 +2,10 @@ import express from 'express'
 import cors from 'cors'
 import marketRoutes from './routes/market.js'
 import paperTradingRoutes from './routes/paper_trading.js'
+import aiSuggestionsRoutes from './routes/ai-suggestions.js'
+import academyRoutes from './routes/academy.js'
+import analyticsRoutes from './routes/analytics.js'
+import chatEnhancedRoutes from './routes/chat-enhanced.js'
 import { initDatabase } from './src/database/init.js'
 
 const app = express()
@@ -19,6 +23,10 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/market', marketRoutes)
 app.use('/api/v1/paper', paperTradingRoutes)
+app.use('/api/suggestions', aiSuggestionsRoutes)
+app.use('/api/academy', academyRoutes)
+app.use('/api/analytics', analyticsRoutes)
+app.use('/api/chat', chatEnhancedRoutes)
 
 app.listen(PORT, () => {
   console.log(`\n🕯️  TradeWise API running on http://localhost:${PORT}\n`)

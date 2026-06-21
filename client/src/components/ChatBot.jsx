@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User, Sparkles, X, Minimize2, Maximize2 } from 'lucide-react'
-import { generateGeminiResponse, generateTradingInsight } from '../utils/geminiService'
 
-export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggleMinimize }) {
+export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggleMinimize, portfolioId }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -31,20 +30,21 @@ export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggle
     setIsLoading(true)
 
     try {
-      const context = `
-        Current Analysis:
-        - Symbol: ${symbol}
-        - Market Trend: ${trend}
-        - Detected Patterns: ${patterns.map(p => p.pattern).join(', ') || 'None'}
-        - Number of Patterns: ${patterns.length}
-      `
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: input,
+          portfolioId,
+          history: messages
+        })
+      })
+      const data = await res.json()
 
-      const { error, response } = await generateGeminiResponse(input, context)
-
-      if (error) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${error}` }])
+      if (data.success) {
+        setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: response }])
+        setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${data.error || 'Failed to get response.'}` }])
       }
     } catch (error) {
       setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Failed to get response. Please try again.' }])
@@ -86,7 +86,7 @@ export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggle
     return (
       <button
         onClick={onToggleMinimize}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-brand-500 hover:bg-brand-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-50 group"
+        className="fixed bottom-20 lg:bottom-6 right-6 w-14 h-14 bg-brand-500 hover:bg-brand-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 z-50 group"
       >
         <Bot size={24} className="text-white" />
         <span className="absolute right-16 bg-surface-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
@@ -97,7 +97,7 @@ export default function ChatBot({ symbol, patterns, trend, isMinimized, onToggle
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 bg-surface-900 border border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col transition-all duration-300 max-w-[calc(100vw-2rem)] ${isExpanded ? 'w-[500px] h-[calc(100vh-48px)] max-h-[600px]' : 'w-[380px] h-[calc(100vh-80px)] max-h-[500px]'}`}>
+    <div className={`fixed bottom-20 lg:bottom-6 right-6 bg-surface-900 border border-slate-700 rounded-2xl shadow-2xl z-50 flex flex-col transition-all duration-300 max-w-[calc(100vw-2rem)] ${isExpanded ? 'w-[500px] h-[calc(100vh-48px)] max-h-[600px]' : 'w-[380px] h-[calc(100vh-80px)] max-h-[500px]'}`}>
       {/* Header */}
       <div className="bg-gradient-to-r from-brand-600 to-brand-500 p-4 rounded-t-2xl flex items-center justify-between">
         <div className="flex items-center gap-3">

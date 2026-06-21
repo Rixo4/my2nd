@@ -47,75 +47,115 @@ export function initDatabase() {
 
   db.exec(`
     -- ────────────────────────────────────────────────────────────
-    -- Paper Portfolios
+    -- 1. USERS & PORTFOLIOS (user_portfolios)
     -- ────────────────────────────────────────────────────────────
-    CREATE TABLE IF NOT EXISTS paper_portfolios (
-      id               TEXT PRIMARY KEY,
-      name             TEXT NOT NULL DEFAULT 'My Portfolio',
-      starting_balance REAL NOT NULL DEFAULT 10000.00,
-      cash_balance     REAL NOT NULL DEFAULT 10000.00,
-      status           TEXT NOT NULL DEFAULT 'ACTIVE',
-      created_at       INTEGER NOT NULL,
-      updated_at       INTEGER NOT NULL
+    CREATE TABLE IF NOT EXISTS user_portfolios (
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT UNIQUE,
+      initial_capital REAL NOT NULL DEFAULT 10000.00,
+      current_cash    REAL NOT NULL DEFAULT 10000.00,
+      total_equity    REAL NOT NULL DEFAULT 10000.00,
+      created_at      INTEGER NOT NULL,
+      updated_at      INTEGER NOT NULL
     );
 
-    -- ────────────────────────────────────────────────────────────
-    -- Paper Positions (open trades)
-    -- ────────────────────────────────────────────────────────────
-    CREATE TABLE IF NOT EXISTS paper_positions (
-      id             TEXT PRIMARY KEY,
-      portfolio_id   TEXT NOT NULL REFERENCES paper_portfolios(id) ON DELETE CASCADE,
-      symbol         TEXT NOT NULL,
-      side           TEXT NOT NULL CHECK(side IN ('BUY', 'SELL')),
-      quantity       REAL NOT NULL,
-      entry_price    REAL NOT NULL,
-      current_price  REAL,
-      status         TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'CLOSED')),
-      opened_at      INTEGER NOT NULL,
-      closed_at      INTEGER
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_positions_portfolio ON paper_positions(portfolio_id, status);
+    CREATE INDEX IF NOT EXISTS idx_portfolios_user ON user_portfolios(user_id);
 
     -- ────────────────────────────────────────────────────────────
-    -- Paper Trades (completed trade records)
+    -- 2. TRADES & POSITIONS (trades)
     -- ────────────────────────────────────────────────────────────
-    CREATE TABLE IF NOT EXISTS paper_trades (
+    CREATE TABLE IF NOT EXISTS trades (
       id           TEXT PRIMARY KEY,
-      portfolio_id TEXT NOT NULL REFERENCES paper_portfolios(id) ON DELETE CASCADE,
-      position_id  TEXT REFERENCES paper_positions(id),
+      user_id      TEXT,
       symbol       TEXT NOT NULL,
-      side         TEXT NOT NULL CHECK(side IN ('BUY', 'SELL')),
-      trade_type   TEXT NOT NULL DEFAULT 'MARKET',
+      type         TEXT NOT NULL CHECK(type IN ('BUY', 'SELL')),
+      entry_price  REAL NOT NULL,
       quantity     REAL NOT NULL,
-      price        REAL NOT NULL,
-      total_value  REAL NOT NULL,
+      entry_time   INTEGER NOT NULL,
+      exit_price   REAL,
+      exit_time    INTEGER,
+      status       TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'CLOSED')),
       pnl          REAL DEFAULT 0,
       pnl_percent  REAL DEFAULT 0,
-      status       TEXT NOT NULL DEFAULT 'FILLED',
-      executed_at  INTEGER NOT NULL
+      created_at   INTEGER NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES user_portfolios(user_id) ON DELETE CASCADE
     );
 
-    CREATE INDEX IF NOT EXISTS idx_trades_portfolio ON paper_trades(portfolio_id);
-    CREATE INDEX IF NOT EXISTS idx_trades_symbol    ON paper_trades(portfolio_id, symbol);
+    CREATE INDEX IF NOT EXISTS idx_trades_user ON trades(user_id);
+    CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol);
+    CREATE INDEX IF NOT EXISTS idx_trades_status ON trades(user_id, status);
 
     -- ────────────────────────────────────────────────────────────
-    -- Portfolio Snapshots (daily equity curve)
+    -- 3. PORTFOLIO SNAPSHOTS (portfolio_snapshots)
     -- ────────────────────────────────────────────────────────────
-    CREATE TABLE IF NOT EXISTS paper_portfolio_snapshots (
+    CREATE TABLE IF NOT EXISTS portfolio_snapshots (
+      id            TEXT PRIMARY KEY,
+      user_id       TEXT,
+      equity        REAL NOT NULL,
+      cash          REAL NOT NULL,
+      snapshot_date TEXT NOT NULL,
+      created_at    INTEGER NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES user_portfolios(user_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_snapshots_user ON portfolio_snapshots(user_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_user_date ON portfolio_snapshots(user_id, snapshot_date);
+
+    -- ────────────────────────────────────────────────────────────
+    -- 4. LEARNING PROGRESS (user_progress)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS user_progress (
+      id                TEXT PRIMARY KEY,
+      user_id           TEXT UNIQUE,
+      current_level     TEXT NOT NULL DEFAULT 'BEGINNER' CHECK(current_level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED')),
+      lessons_completed INTEGER NOT NULL DEFAULT 0,
+      xp_points         INTEGER NOT NULL DEFAULT 0,
+      badges            TEXT NOT NULL DEFAULT '[]', -- JSON string of badges
+      last_updated      INTEGER NOT NULL,
+      FOREIGN KEY(user_id) REFERENCES user_portfolios(user_id) ON DELETE CASCADE
+    );
+
+    -- ────────────────────────────────────────────────────────────
+    -- 5. PATTERN RECOGNITION CACHE (pattern_cache)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS pattern_cache (
+      id               TEXT PRIMARY KEY,
+      symbol           TEXT NOT NULL,
+      timeframe        TEXT NOT NULL,
+      pattern_type     TEXT NOT NULL,
+      confidence_score REAL,
+      detected_at      INTEGER NOT NULL,
+      expires_at       INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pattern_symbol_timeframe ON pattern_cache(symbol, timeframe);
+
+    -- ────────────────────────────────────────────────────────────
+    -- 6. NEWS & SENTIMENT (news_sentiment)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS news_sentiment (
       id              TEXT PRIMARY KEY,
-      portfolio_id    TEXT NOT NULL REFERENCES paper_portfolios(id) ON DELETE CASCADE,
-      total_value     REAL NOT NULL,
-      cash_balance    REAL NOT NULL,
-      positions_value REAL NOT NULL DEFAULT 0,
-      realized_pnl    REAL NOT NULL DEFAULT 0,
-      snapshot_date   TEXT NOT NULL,
-      created_at      INTEGER NOT NULL
+      symbol          TEXT NOT NULL,
+      title           TEXT NOT NULL,
+      summary         TEXT,
+      sentiment_score REAL, -- -1 (bearish) to 1 (bullish)
+      source          TEXT,
+      published_at    INTEGER NOT NULL,
+      cached_at       INTEGER NOT NULL
     );
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_snapshots_date
-      ON paper_portfolio_snapshots(portfolio_id, snapshot_date);
+    CREATE INDEX IF NOT EXISTS idx_news_symbol ON news_sentiment(symbol);
   `)
 
-  console.log('📊 Paper trading database initialized at:', DB_PATH)
+  // Expire caches older than 6 hours at start
+  try {
+    const now = Math.floor(Date.now() / 1000)
+    db.prepare('DELETE FROM pattern_cache WHERE expires_at < ?').run(now)
+    db.prepare('DELETE FROM news_sentiment WHERE cached_at < ?').run(now - 6 * 3600)
+  } catch (err) {
+    console.error('Failed to run database cache auto-cleanup:', err.message)
+  }
+
+  console.log('📊 Consolidated paper trading database initialized at:', DB_PATH)
 }
+

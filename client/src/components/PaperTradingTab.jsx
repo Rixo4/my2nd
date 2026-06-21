@@ -8,6 +8,7 @@ import {
   ArrowRight, Circle, Layers, ChevronDown, Bot
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import PositionSizingCalculator from './Trading/PositionSizingCalculator'
 
 const API_BASE = '/api/v1/paper'
 const SUPPORTED_SYMBOLS = ['AAPL', 'MSFT', 'GOOGL', 'BTC', 'ETH', 'EURUSD', 'GBPUSD']
@@ -1106,6 +1107,15 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
                     )
                   })}
                 </div>
+
+                {/* AI Risk & Position Sizer */}
+                <PositionSizingCalculator
+                  portfolioId={portfolioId}
+                  symbol={orderSymbol}
+                  patternName={aiAnalysis?.patternName}
+                  patternWinRate={aiAnalysis?.patternWinRate}
+                  onApplySize={(qty) => setOrderQty(qty.toString())}
+                />
               </div>
 
               {/* Estimate info */}
