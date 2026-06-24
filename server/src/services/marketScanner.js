@@ -275,6 +275,7 @@ async function writePatternToCache(symbol, timeframe, pattern, confidence) {
     if (isSupabaseConfigured) {
       const supabase = getSupabase()
       const { error } = await supabase.from('pattern_cache').upsert({
+        id,
         symbol: symbol.toUpperCase(),
         timeframe,
         pattern_type: pattern,
