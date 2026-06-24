@@ -288,7 +288,8 @@ CREATE TABLE IF NOT EXISTS public.news_sentiment (
     source TEXT,
     published_at TIMESTAMP WITH TIME ZONE NOT NULL,
     cached_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT unique_news_sentiment UNIQUE (symbol, title)
 );
 
 ALTER TABLE public.news_sentiment ENABLE ROW LEVEL SECURITY;
@@ -306,9 +307,10 @@ CREATE TABLE IF NOT EXISTS public.pattern_cache (
     timeframe TEXT NOT NULL,
     pattern_type TEXT NOT NULL,
     confidence_score DOUBLE PRECISION,
-    detected_at BIGINT NOT NULL,
-    expires_at BIGINT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT unique_pattern UNIQUE (symbol, timeframe)
 );
 
 ALTER TABLE public.pattern_cache ENABLE ROW LEVEL SECURITY;
