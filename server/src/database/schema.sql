@@ -442,7 +442,7 @@ CREATE INDEX IF NOT EXISTS idx_watchlists_user ON public.watchlists(user_id);
 CREATE INDEX IF NOT EXISTS idx_progress_user ON public.academy_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_lessons_difficulty ON public.academy_lessons(difficulty);
 CREATE INDEX IF NOT EXISTS idx_results_user ON public.quiz_results(user_id);
-CREATE INDEX IF NOT EXISTS idx_news_published ON public.news(published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_news_published ON public.news_sentiment(published_at DESC);
 CREATE INDEX IF NOT EXISTS idx_news_sentiment_score ON public.news_sentiment(sentiment_score);
 CREATE INDEX IF NOT EXISTS idx_scans_symbol ON public.market_scans(symbol);
 CREATE INDEX IF NOT EXISTS idx_alerts_user ON public.alerts(user_id);
