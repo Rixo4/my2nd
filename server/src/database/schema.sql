@@ -277,29 +277,16 @@ CREATE POLICY "Users can view their own quiz results" ON public.quiz_results
 CREATE POLICY "Users can insert their own quiz results" ON public.quiz_results
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- ── 13. NEWS ─────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.news (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- ── 13. NEWS SENTIMENT ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.news_sentiment (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
     title TEXT NOT NULL,
     summary TEXT,
+    sentiment_score DOUBLE PRECISION NOT NULL,
     source TEXT,
-    url TEXT,
     published_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.news ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow reading news to authenticated users" ON public.news
-    FOR SELECT USING (auth.role() = 'authenticated');
-
--- ── 14. NEWS SENTIMENT ───────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.news_sentiment (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    news_id UUID REFERENCES public.news(id) ON DELETE CASCADE,
-    symbol TEXT NOT NULL,
-    sentiment_score DOUBLE PRECISION NOT NULL CHECK (sentiment_score BETWEEN -1.0 AND 1.0),
-    impact TEXT CHECK (impact IN ('bullish', 'bearish', 'neutral')),
+    cached_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -307,6 +294,29 @@ ALTER TABLE public.news_sentiment ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow reading news sentiment to authenticated users" ON public.news_sentiment
     FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow service role management of news sentiment" ON public.news_sentiment
+    FOR ALL USING (true);
+
+-- ── 14. PATTERN CACHE ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.pattern_cache (
+    id TEXT PRIMARY KEY,
+    symbol TEXT NOT NULL,
+    timeframe TEXT NOT NULL,
+    pattern_type TEXT NOT NULL,
+    confidence_score DOUBLE PRECISION,
+    detected_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.pattern_cache ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow reading pattern cache to authenticated users" ON public.pattern_cache
+    FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE POLICY "Allow service role management of pattern cache" ON public.pattern_cache
+    FOR ALL USING (true);
 
 -- ── 15. MARKET SCANS ─────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.market_scans (
