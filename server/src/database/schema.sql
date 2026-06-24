@@ -2,7 +2,6 @@
 -- Auto-generated schema definitions to run in Supabase SQL editor.
 
 -- Enable UUID extension
-
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ── 1. PROFILES (Extends Supabase Auth users) ────────────────────────────────
@@ -18,9 +17,11 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Row Level Security for profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow public read access to profiles" ON public.profiles;
 CREATE POLICY "Allow public read access to profiles" ON public.profiles
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Allow users to update their own profiles" ON public.profiles;
 CREATE POLICY "Allow users to update their own profiles" ON public.profiles
     FOR UPDATE USING (auth.uid() = id);
 
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
 
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own subscriptions" ON public.subscriptions;
 CREATE POLICY "Users can view their own subscriptions" ON public.subscriptions
     FOR SELECT USING (auth.uid() = user_id);
 
@@ -55,12 +57,15 @@ CREATE TABLE IF NOT EXISTS public.portfolios (
 
 ALTER TABLE public.portfolios ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own portfolios" ON public.portfolios;
 CREATE POLICY "Users can view their own portfolios" ON public.portfolios
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own portfolios" ON public.portfolios;
 CREATE POLICY "Users can update their own portfolios" ON public.portfolios
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own portfolios" ON public.portfolios;
 CREATE POLICY "Users can insert their own portfolios" ON public.portfolios
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -82,6 +87,7 @@ CREATE TABLE IF NOT EXISTS public.positions (
 
 ALTER TABLE public.positions ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own positions" ON public.positions;
 CREATE POLICY "Users can view their own positions" ON public.positions
     FOR SELECT USING (
         EXISTS (
@@ -90,6 +96,7 @@ CREATE POLICY "Users can view their own positions" ON public.positions
         )
     );
 
+DROP POLICY IF EXISTS "Users can manage their own positions" ON public.positions;
 CREATE POLICY "Users can manage their own positions" ON public.positions
     FOR ALL USING (
         EXISTS (
@@ -113,6 +120,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
 
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own orders" ON public.orders;
 CREATE POLICY "Users can view their own orders" ON public.orders
     FOR SELECT USING (
         EXISTS (
@@ -121,6 +129,7 @@ CREATE POLICY "Users can view their own orders" ON public.orders
         )
     );
 
+DROP POLICY IF EXISTS "Users can manage their own orders" ON public.orders;
 CREATE POLICY "Users can manage their own orders" ON public.orders
     FOR ALL USING (
         EXISTS (
@@ -146,6 +155,7 @@ CREATE TABLE IF NOT EXISTS public.trades (
 
 ALTER TABLE public.trades ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own trades" ON public.trades;
 CREATE POLICY "Users can view their own trades" ON public.trades
     FOR SELECT USING (
         EXISTS (
@@ -154,6 +164,7 @@ CREATE POLICY "Users can view their own trades" ON public.trades
         )
     );
 
+DROP POLICY IF EXISTS "Users can insert their own trades" ON public.trades;
 CREATE POLICY "Users can insert their own trades" ON public.trades
     FOR INSERT WITH CHECK (
         EXISTS (
@@ -175,6 +186,7 @@ CREATE TABLE IF NOT EXISTS public.portfolio_snapshots (
 
 ALTER TABLE public.portfolio_snapshots ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own snapshots" ON public.portfolio_snapshots;
 CREATE POLICY "Users can view their own snapshots" ON public.portfolio_snapshots
     FOR SELECT USING (
         EXISTS (
@@ -183,6 +195,7 @@ CREATE POLICY "Users can view their own snapshots" ON public.portfolio_snapshots
         )
     );
 
+DROP POLICY IF EXISTS "Users can manage their own snapshots" ON public.portfolio_snapshots;
 CREATE POLICY "Users can manage their own snapshots" ON public.portfolio_snapshots
     FOR ALL USING (
         EXISTS (
@@ -202,9 +215,11 @@ CREATE TABLE IF NOT EXISTS public.watchlists (
 
 ALTER TABLE public.watchlists ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own watchlists" ON public.watchlists;
 CREATE POLICY "Users can view their own watchlists" ON public.watchlists
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage their own watchlists" ON public.watchlists;
 CREATE POLICY "Users can manage their own watchlists" ON public.watchlists
     FOR ALL USING (auth.uid() = user_id);
 
@@ -221,9 +236,11 @@ CREATE TABLE IF NOT EXISTS public.academy_progress (
 
 ALTER TABLE public.academy_progress ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own progress" ON public.academy_progress;
 CREATE POLICY "Users can view their own progress" ON public.academy_progress
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage their own progress" ON public.academy_progress;
 CREATE POLICY "Users can manage their own progress" ON public.academy_progress
     FOR ALL USING (auth.uid() = user_id);
 
@@ -241,6 +258,7 @@ CREATE TABLE IF NOT EXISTS public.academy_lessons (
 
 ALTER TABLE public.academy_lessons ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow reading lessons to authenticated users" ON public.academy_lessons;
 CREATE POLICY "Allow reading lessons to authenticated users" ON public.academy_lessons
     FOR SELECT USING (auth.role() = 'authenticated');
 
@@ -257,6 +275,7 @@ CREATE TABLE IF NOT EXISTS public.academy_quizzes (
 
 ALTER TABLE public.academy_quizzes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow reading quizzes to authenticated users" ON public.academy_quizzes;
 CREATE POLICY "Allow reading quizzes to authenticated users" ON public.academy_quizzes
     FOR SELECT USING (auth.role() = 'authenticated');
 
@@ -272,9 +291,11 @@ CREATE TABLE IF NOT EXISTS public.quiz_results (
 
 ALTER TABLE public.quiz_results ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own quiz results" ON public.quiz_results;
 CREATE POLICY "Users can view their own quiz results" ON public.quiz_results
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own quiz results" ON public.quiz_results;
 CREATE POLICY "Users can insert their own quiz results" ON public.quiz_results
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -294,9 +315,11 @@ CREATE TABLE IF NOT EXISTS public.news_sentiment (
 
 ALTER TABLE public.news_sentiment ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow reading news sentiment to authenticated users" ON public.news_sentiment;
 CREATE POLICY "Allow reading news sentiment to authenticated users" ON public.news_sentiment
     FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Allow service role management of news sentiment" ON public.news_sentiment;
 CREATE POLICY "Allow service role management of news sentiment" ON public.news_sentiment
     FOR ALL USING (true);
 
@@ -315,9 +338,11 @@ CREATE TABLE IF NOT EXISTS public.pattern_cache (
 
 ALTER TABLE public.pattern_cache ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow reading pattern cache to authenticated users" ON public.pattern_cache;
 CREATE POLICY "Allow reading pattern cache to authenticated users" ON public.pattern_cache
     FOR SELECT USING (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Allow service role management of pattern cache" ON public.pattern_cache;
 CREATE POLICY "Allow service role management of pattern cache" ON public.pattern_cache
     FOR ALL USING (true);
 
@@ -333,6 +358,7 @@ CREATE TABLE IF NOT EXISTS public.market_scans (
 
 ALTER TABLE public.market_scans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Allow reading market scans to authenticated users" ON public.market_scans;
 CREATE POLICY "Allow reading market scans to authenticated users" ON public.market_scans
     FOR SELECT USING (auth.role() = 'authenticated');
 
@@ -351,9 +377,11 @@ CREATE TABLE IF NOT EXISTS public.alerts (
 
 ALTER TABLE public.alerts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own alerts" ON public.alerts;
 CREATE POLICY "Users can view their own alerts" ON public.alerts
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage their own alerts" ON public.alerts;
 CREATE POLICY "Users can manage their own alerts" ON public.alerts
     FOR ALL USING (auth.uid() = user_id);
 
@@ -369,9 +397,11 @@ CREATE TABLE IF NOT EXISTS public.chat_history (
 
 ALTER TABLE public.chat_history ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own chat history" ON public.chat_history;
 CREATE POLICY "Users can view their own chat history" ON public.chat_history
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own chat history" ON public.chat_history;
 CREATE POLICY "Users can insert their own chat history" ON public.chat_history
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
@@ -387,9 +417,11 @@ CREATE TABLE IF NOT EXISTS public.ai_reports (
 
 ALTER TABLE public.ai_reports ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own reports" ON public.ai_reports;
 CREATE POLICY "Users can view their own reports" ON public.ai_reports
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage their own reports" ON public.ai_reports;
 CREATE POLICY "Users can manage their own reports" ON public.ai_reports
     FOR ALL USING (auth.uid() = user_id);
 
@@ -405,9 +437,11 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own notifications" ON public.notifications;
 CREATE POLICY "Users can view their own notifications" ON public.notifications
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can manage their own notifications" ON public.notifications;
 CREATE POLICY "Users can manage their own notifications" ON public.notifications
     FOR ALL USING (auth.uid() = user_id);
 
@@ -424,12 +458,15 @@ CREATE TABLE IF NOT EXISTS public.settings (
 
 ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view their own settings" ON public.settings;
 CREATE POLICY "Users can view their own settings" ON public.settings
     FOR SELECT USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can update their own settings" ON public.settings;
 CREATE POLICY "Users can update their own settings" ON public.settings
     FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can insert their own settings" ON public.settings;
 CREATE POLICY "Users can insert their own settings" ON public.settings
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
