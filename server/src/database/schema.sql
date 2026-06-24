@@ -2,6 +2,7 @@
 -- Auto-generated schema definitions to run in Supabase SQL editor.
 
 -- Enable UUID extension
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ── 1. PROFILES (Extends Supabase Auth users) ────────────────────────────────
