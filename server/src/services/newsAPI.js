@@ -192,7 +192,16 @@ export async function getSymbolNews(symbol) {
         published_at: new Date(item.published_at * 1000).toISOString(),
         cached_at: new Date(item.cached_at * 1000).toISOString()
       }))
-      const { error } = await supabase.from('news_sentiment').upsert(rows, { onConflict: 'symbol,title' })
+      const uniqueRows = []
+      const seenKeys = new Set()
+      for (const row of rows) {
+        const key = `${row.symbol}-${row.title}`
+        if (!seenKeys.has(key)) {
+          seenKeys.add(key)
+          uniqueRows.push(row)
+        }
+      }
+      const { error } = await supabase.from('news_sentiment').upsert(uniqueRows, { onConflict: 'symbol,title' })
       if (error) throw error
     } else {
       const db = getDb()
