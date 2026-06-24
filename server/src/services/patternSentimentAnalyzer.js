@@ -1,4 +1,5 @@
 import { getDb } from '../database/init.js'
+import { getSupabase, isSupabaseConfigured } from '../database/supabase.js'
 
 // Standard statistical defaults for pattern performance in various news sentiment states
 const DEFAULT_REGIME_MATRIX = {
@@ -31,24 +32,38 @@ const DEFAULT_REGIME_MATRIX = {
  * Returns pattern win rates split by news sentiment states (bullish, neutral, bearish).
  * Merges historical portfolio performance with standard market guidelines.
  * @param {string} portfolioId
- * @returns {object}
+ * @returns {Promise<object>}
  */
-export function getPatternSentimentCorrelation(portfolioId) {
-  const db = getDb()
-  
+export async function getPatternSentimentCorrelation(portfolioId) {
   // Initialize result matrix using copy of defaults
   const matrix = JSON.parse(JSON.stringify(DEFAULT_REGIME_MATRIX))
+  let trades = []
 
   try {
-    // Read all closed trades from database
-    const trades = db.prepare(`
-      SELECT symbol, pnl, entry_time, exit_price FROM trades 
-      WHERE user_id = ? AND status = 'CLOSED'
-    `).all(portfolioId)
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase()
+      const { data, error } = await supabase
+        .from('trades')
+        .select('symbol, pnl')
+        .eq('portfolio_id', portfolioId)
+      
+      if (error) throw error
+      if (data) {
+        trades = data.map(d => ({
+          symbol: d.symbol,
+          pnl: parseFloat(d.pnl)
+        }))
+      }
+    } else {
+      const db = getDb()
+      const rows = db.prepare(`
+        SELECT symbol, pnl FROM trades 
+        WHERE user_id = ? AND status = 'CLOSED'
+      `).all(portfolioId)
+      trades = rows
+    }
 
     if (trades.length > 0) {
-      // Group historical results to adjust baseline win rates
-      // (This serves as a mock correlation booster based on user's actual successes)
       const totalWins = trades.filter(t => t.pnl > 0).length
       const winRateRatio = totalWins / trades.length
 

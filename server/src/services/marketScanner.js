@@ -5,14 +5,25 @@
  */
 
 import { getDb } from '../database/init.js'
+import { getSupabase, isSupabaseConfigured } from '../database/supabase.js'
 import { randomUUID } from 'crypto'
+import {
+  getAllWatchlistItems,
+  createNotification,
+  getUserSettings,
+  getUserEmail
+} from '../trading/paper_trading/models.js'
+import { sendWatchlistAlertEmail } from './email.js'
 
 const TWELVE_DATA_KEY = process.env.TWELVE_DATA_API_KEY || ''
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || ''
+const POLYGON_KEY = process.env.POLYGON_API_KEY || ''
+const ALPHAVANTAGE_KEY = process.env.ALPHAVANTAGE_API_KEY || ''
 
 const CRYPTO_SYMBOLS = ['BTC', 'ETH', 'BNB', 'SOL', 'XRP']
 const STOCK_SYMBOLS  = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA']
-const ALL_SYMBOLS    = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS]
+const FOREX_SYMBOLS  = ['EURUSD', 'GBPUSD']
+const ALL_SYMBOLS    = [...CRYPTO_SYMBOLS, ...STOCK_SYMBOLS, ...FOREX_SYMBOLS]
 
 const FINNHUB_CRYPTO_MAP = { BTC: 'BINANCE:BTCUSDT', ETH: 'BINANCE:ETHUSDT', BNB: 'BINANCE:BNBUSDT', SOL: 'BINANCE:SOLUSDT', XRP: 'BINANCE:XRPUSDT' }
 
@@ -31,6 +42,50 @@ async function fetchBinanceCandles(symbol, interval = '1d', limit = 20) {
       volume:parseFloat(c[5])
     }))
   } catch {
+    return null
+  }
+}
+
+async function fetchPolygonCandles(symbol, limit = 20) {
+  if (!POLYGON_KEY) return null
+  const to = new Date().toISOString().split('T')[0]
+  const from = new Date(Date.now() - 40 * 24 * 3600 * 1000).toISOString().split('T')[0]
+  try {
+    const res = await fetch(`https://api.polygon.io/v2/aggs/ticker/${symbol}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=${limit}&apiKey=${POLYGON_KEY}`)
+    const data = await res.json()
+    if (!data.results) return null
+    return data.results.map(r => ({
+      open: r.o,
+      high: r.h,
+      low: r.l,
+      close: r.c,
+      volume: r.v
+    }))
+  } catch (err) {
+    console.error(`[scanner] Polygon fetch failed for ${symbol}:`, err.message)
+    return null
+  }
+}
+
+async function fetchAlphaVantageForex(symbol) {
+  if (!ALPHAVANTAGE_KEY || symbol.length !== 6) return null
+  const fromSym = symbol.slice(0, 3)
+  const toSym = symbol.slice(3)
+  try {
+    const res = await fetch(`https://www.alphavantage.co/query?function=FX_DAILY&from_symbol=${fromSym}&to_symbol=${toSym}&apikey=${ALPHAVANTAGE_KEY}`)
+    const data = await res.json()
+    const series = data['Time Series FX (Daily)']
+    if (!series) return null
+    const dates = Object.keys(series).sort().slice(-20)
+    return dates.map(d => ({
+      open: parseFloat(series[d]['1. open']),
+      high: parseFloat(series[d]['2. high']),
+      low: parseFloat(series[d]['3. low']),
+      close: parseFloat(series[d]['4. close']),
+      volume: 0
+    }))
+  } catch (err) {
+    console.error(`[scanner] Alpha Vantage fetch failed for ${symbol}:`, err.message)
     return null
   }
 }
@@ -54,11 +109,22 @@ async function fetchTwelveDataCandles(symbol, interval = '1day', outputsize = 20
   }
 }
 
-async function getCandles(symbol) {
+export async function getCandles(symbol, limit = 50) {
   if (CRYPTO_SYMBOLS.includes(symbol)) {
-    return await fetchBinanceCandles(symbol)
+    return await fetchBinanceCandles(symbol, '1d', limit)
   }
-  return await fetchTwelveDataCandles(symbol)
+  
+  if (STOCK_SYMBOLS.includes(symbol)) {
+    const poly = await fetchPolygonCandles(symbol, limit)
+    if (poly) return poly
+  }
+
+  if (FOREX_SYMBOLS.includes(symbol)) {
+    const av = await fetchAlphaVantageForex(symbol)
+    if (av) return av
+  }
+
+  return await fetchTwelveDataCandles(symbol, '1day', limit)
 }
 
 // ── Pattern Detection ──────────────────────────────────────────────────────────
@@ -200,24 +266,59 @@ function computeHeuristicSentiment(text = '') {
 
 // ── DB Writers ─────────────────────────────────────────────────────────────────
 
-function writePatternToCache(symbol, timeframe, pattern, confidence) {
+async function writePatternToCache(symbol, timeframe, pattern, confidence) {
   try {
-    const db = getDb()
     const now = Math.floor(Date.now() / 1000)
+    const expiresAt = now + 6 * 3600
+    const id = randomUUID()
+
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase()
+      const { error } = await supabase.from('pattern_cache').upsert({
+        symbol: symbol.toUpperCase(),
+        timeframe,
+        pattern_type: pattern,
+        confidence_score: confidence,
+        detected_at: new Date(now * 1000).toISOString(),
+        expires_at: new Date(expiresAt * 1000).toISOString()
+      }, { onConflict: 'symbol,timeframe' })
+      if (error) throw error
+      return
+    }
+
+    const db = getDb()
     db.prepare(`
       INSERT OR REPLACE INTO pattern_cache (id, symbol, timeframe, pattern_type, confidence_score, detected_at, expires_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(randomUUID(), symbol, timeframe, pattern, confidence, now, now + 6 * 3600)
+    `).run(id, symbol, timeframe, pattern, confidence, now, expiresAt)
   } catch (err) {
     console.error('[scanner] Failed to write pattern cache:', err.message)
   }
 }
 
-function writeNewsToCache(symbol, articles) {
+async function writeNewsToCache(symbol, articles) {
   if (!articles.length) return
   try {
-    const db = getDb()
     const now = Math.floor(Date.now() / 1000)
+
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase()
+      const rows = articles.map(a => ({
+        id: randomUUID(),
+        symbol: symbol.toUpperCase(),
+        title: a.title,
+        summary: a.summary || '',
+        sentiment_score: a.sentiment_score,
+        source: a.source || 'finnhub',
+        published_at: new Date((a.published_at || now) * 1000).toISOString(),
+        cached_at: new Date().toISOString()
+      }))
+      const { error } = await supabase.from('news_sentiment').upsert(rows, { onConflict: 'symbol,title' })
+      if (error) throw error
+      return
+    }
+
+    const db = getDb()
     const stmt = db.prepare(`
       INSERT OR IGNORE INTO news_sentiment (id, symbol, title, summary, sentiment_score, source, published_at, cached_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -234,6 +335,44 @@ function writeNewsToCache(symbol, articles) {
 
 let _lastScanAt = 0
 let _scanInProgress = false
+
+async function matchScansWithWatchlists(foundPatterns) {
+  if (!foundPatterns || foundPatterns.length === 0) return
+
+  try {
+    // 1. Get all watchlist items across all users
+    const watchlistItems = await getAllWatchlistItems()
+    if (watchlistItems.length === 0) return
+
+    // 2. Loop through and check for matches
+    for (const item of watchlistItems) {
+      const match = foundPatterns.find(p => p.symbol.toUpperCase() === item.symbol.toUpperCase())
+      if (match) {
+        // We have a match! Create a notification for this user
+        const title = `🎯 Watchlist Pattern Triggered: ${match.symbol}`
+        const message = `A new ${match.pattern} pattern has been detected on ${match.symbol} with ${(match.confidence * 100).toFixed(0)}% confidence, indicating a ${match.signal} signal.`
+        
+        await createNotification(item.user_id, title, message)
+        console.log(`[scanner] Created pattern match notification for user ${item.user_id} on ${match.symbol}`)
+
+        // Check if the user has email alerts enabled
+        const settings = await getUserSettings(item.user_id)
+        if (settings && settings.email_alerts) {
+          const email = await getUserEmail(item.user_id)
+          await sendWatchlistAlertEmail({
+            email,
+            symbol: match.symbol,
+            pattern: match.pattern,
+            confidence: match.confidence,
+            signal: match.signal
+          })
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[scanner] Error matching scans with watchlists:', err.message)
+  }
+}
 
 export async function runMarketScan(force = false) {
   const now = Date.now()
@@ -253,14 +392,14 @@ export async function runMarketScan(force = false) {
 
       const patterns = detectPatterns(candles)
       for (const p of patterns) {
-        writePatternToCache(symbol, '1d', p.pattern, p.confidence)
+        await writePatternToCache(symbol, '1d', p.pattern, p.confidence)
         found.push({ symbol, pattern: p.pattern, confidence: p.confidence, signal: p.signal })
       }
 
       // Fetch news for stocks only
       if (STOCK_SYMBOLS.includes(symbol)) {
         const articles = await fetchFinnhubSentiment(symbol)
-        writeNewsToCache(symbol, articles)
+        await writeNewsToCache(symbol, articles)
       }
 
       // Small delay to avoid rate limits
@@ -269,6 +408,10 @@ export async function runMarketScan(force = false) {
 
     _lastScanAt = Date.now()
     console.log(`[scanner] Scan complete. Found ${found.length} patterns across ${ALL_SYMBOLS.length} symbols.`)
+    
+    // Check watchlists and notify users
+    await matchScansWithWatchlists(found)
+
     return { success: true, patterns_found: found.length, patterns: found }
   } catch (err) {
     console.error('[scanner] Market scan error:', err.message)

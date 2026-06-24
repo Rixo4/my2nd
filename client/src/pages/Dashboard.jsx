@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   BarChart2, RefreshCw, Activity, BookOpen, Zap, AlertCircle, 
-  TrendingUp, HelpCircle, Menu, X, Layout, Wallet, List, Bell, Search,
+  TrendingUp, HelpCircle, Menu, X, Layout, Wallet, List, Bell, Search, Settings,
   Bitcoin, Shield, Play, Check, ChevronRight, Briefcase, LogOut, Scale
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -16,11 +16,15 @@ import LearningCards from '../components/LearningCards'
 import RecommendationBox from '../components/RecommendationBox'
 import ChatBot from '../components/ChatBot'
 import PaperTradingTab from '../components/PaperTradingTab'
+import PriceAlerts from '../components/PriceAlerts'
+import ScannerControls from '../components/ScannerControls'
+import Leaderboard from '../components/Leaderboard'
 import NewsSection from '../components/Dashboard/NewsSection'
 import AITradeRecommendations from '../components/Dashboard/AITradeRecommendations'
 import NewsPatternCorrelation from '../components/Dashboard/NewsPatternCorrelation'
 import AdaptiveLearningPath from '../components/Academy/AdaptiveLearningPath'
 import PatternTrainingMode from '../components/Academy/PatternTrainingMode'
+import MarketCopilot from '../components/Dashboard/MarketCopilot'
 import { CANDLE_DATA, ALL_SYMBOLS, SYMBOLS, getNextCandle } from '../data/mockData'
 import { STOCK_MARKET_NEWS } from '../data/newsData'
 import { LEARNING_TOPICS } from '../data/learningData'
@@ -151,6 +155,99 @@ export default function Dashboard() {
   const [academyTracks, setAcademyTracks] = useState(ACADEMY_TRACKS)
   const [activeTrackId, setActiveTrackId] = useState('beginner')
   const [watchlist, setWatchlist] = useState(['AAPL', 'BTC', 'EURUSD'])
+  const [showNotificationsPanel, setShowNotificationsPanel] = useState(false)
+  const [showSettingsModal, setShowSettingsModal] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [userSettings, setUserSettings] = useState({ email_alerts: true, weekly_report: true, theme: 'dark' })
+
+  // Custom setWatchlist helper to sync with backend database
+  const handleSetWatchlist = useCallback((updateFn) => {
+    setWatchlist(prev => {
+      const next = typeof updateFn === 'function' ? updateFn(prev) : updateFn
+      const added = next.filter(s => !prev.includes(s))
+      const removed = prev.filter(s => !next.includes(s))
+
+      added.forEach(s => {
+        if (portfolioId) {
+          fetch('/api/v1/paper/watchlist', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: portfolioId, symbol: s })
+          }).catch(err => console.error('Watchlist sync error:', err))
+        }
+      })
+
+      removed.forEach(s => {
+        if (portfolioId) {
+          fetch(`/api/v1/paper/watchlist/${portfolioId}/${s}`, {
+            method: 'DELETE'
+          }).catch(err => console.error('Watchlist sync error:', err))
+        }
+      })
+
+      return next
+    })
+  }, [portfolioId])
+
+  const fetchNotificationsAndSettings = useCallback(async () => {
+    if (!portfolioId) return
+    try {
+      const notifRes = await fetch(`/api/v1/paper/notifications/${portfolioId}`)
+      const notifData = await notifRes.json()
+      if (notifData.success) {
+        setNotifications(notifData.notifications)
+      }
+
+      const settingsRes = await fetch(`/api/v1/paper/settings/${portfolioId}`)
+      const settingsData = await settingsRes.json()
+      if (settingsData.success) {
+        setUserSettings(settingsData.settings)
+      }
+
+      const watchlistRes = await fetch(`/api/v1/paper/watchlist/${portfolioId}`)
+      const watchlistData = await watchlistRes.json()
+      if (watchlistData.success && watchlistData.watchlist && watchlistData.watchlist.length > 0) {
+        setWatchlist(watchlistData.watchlist.map(item => item.symbol))
+      }
+    } catch (err) {
+      console.error('Failed to load settings or notifications:', err)
+    }
+  }, [portfolioId])
+
+  useEffect(() => {
+    fetchNotificationsAndSettings()
+    const interval = setInterval(fetchNotificationsAndSettings, 60000)
+    return () => clearInterval(interval)
+  }, [fetchNotificationsAndSettings])
+
+  const handleMarkNotificationRead = async (notifId) => {
+    try {
+      setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n))
+      await fetch('/api/v1/paper/notifications/read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: portfolioId, notificationId: notifId })
+      })
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err)
+    }
+  }
+
+  const handleUpdateSettings = async (updatedFields) => {
+    const nextSettings = { ...userSettings, ...updatedFields }
+    setUserSettings(nextSettings)
+    try {
+      await fetch('/api/v1/paper/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: portfolioId, ...nextSettings })
+      })
+    } catch (err) {
+      console.error('Failed to update settings:', err)
+    }
+  }
+
+  const unreadNotificationsCount = notifications.filter(n => !n.read).length
   const [isChatBotMinimized, setIsChatBotMinimized] = useState(true)
 
   const fetchBackendPortfolio = useCallback(async (id) => {
@@ -203,7 +300,7 @@ export default function Dashboard() {
       fetchBackendPortfolio(portfolioId)
       const interval = setInterval(() => {
         fetchBackendPortfolio(portfolioId)
-      }, 5000)
+      }, 10000)
       return () => clearInterval(interval)
     } else {
       // If no portfolio ID exists at all (guest on fresh load)
@@ -670,6 +767,72 @@ export default function Dashboard() {
           <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block" />
           <div className="flex items-center gap-2">
             <img src={user?.avatar} alt={user?.name} className="w-7 h-7 rounded-full border border-slate-700 bg-slate-800 hidden md:block" />
+            
+            {/* Notifications Bell */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotificationsPanel(!showNotificationsPanel)} 
+                className={`p-1.5 rounded relative border transition-all text-xs font-bold uppercase flex items-center gap-1.5
+                  ${showNotificationsPanel ? 'text-brand-400 bg-brand-500/10 border-brand-500/30' : 'text-slate-400 bg-surface-800 border-slate-700 hover:text-white'}`}
+              >
+                <Bell size={12} />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full text-[8px] font-black w-4 h-4 flex items-center justify-center animate-pulse">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Notifications panel dropdown */}
+              {showNotificationsPanel && (
+                <div className="absolute right-0 mt-2 w-80 bg-surface-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-4 max-h-96 overflow-y-auto">
+                  <div className="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
+                    <h4 className="text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                      <Bell size={12} className="text-brand-400" /> Notifications
+                    </h4>
+                    <button 
+                      onClick={() => setShowNotificationsPanel(false)}
+                      className="text-slate-400 hover:text-white"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    {notifications.length === 0 ? (
+                      <p className="text-slate-500 text-[10px] text-center py-4">No recent notifications</p>
+                    ) : (
+                      notifications.map(n => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => {
+                            if (!n.read) handleMarkNotificationRead(n.id)
+                          }}
+                          className={`p-2.5 rounded-lg border transition-all text-left cursor-pointer
+                            ${n.read 
+                              ? 'bg-surface-900/50 border-slate-800/80 text-slate-500' 
+                              : 'bg-brand-500/10 border-brand-500/30 text-white font-semibold'}`}
+                        >
+                          <p className="text-xs">{n.title}</p>
+                          <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{n.message}</p>
+                          <span className="text-[8px] text-slate-500 block mt-1.5">
+                            {new Date(n.created_at * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Settings Button */}
+            <button 
+              onClick={() => setShowSettingsModal(true)} 
+              className="p-1.5 rounded text-slate-400 bg-surface-800 border border-slate-700 hover:text-white transition-all flex items-center gap-1.5"
+            >
+              <Settings size={12} />
+            </button>
+
             <button 
               onClick={handleLogout}
               className="p-1.5 rounded hover:text-red-400 text-slate-400 bg-surface-800 border border-slate-700 hover:border-red-500/30 transition-all text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
@@ -684,7 +847,10 @@ export default function Dashboard() {
         {/* Left Sidebar - Desktop only */}
         {activeTab === 'terminal' && (
           <aside className="w-64 hidden lg:flex flex-col gap-4 p-4 border-r border-slate-800/50 overflow-y-auto">
-            <Watchlist activeSymbol={activeSymbol} onSelect={setActiveSymbol} watchlist={watchlist} setWatchlist={setWatchlist} />
+            <Watchlist activeSymbol={activeSymbol} onSelect={setActiveSymbol} watchlist={watchlist} setWatchlist={handleSetWatchlist} />
+            <PriceAlerts activeSymbol={activeSymbol} currentPrice={lastCandle ? lastCandle.close : null} />
+            <ScannerControls />
+            <Leaderboard />
             <Filters market={market} setMarket={setMarket} timeframe={timeframe} setTimeframe={setTimeframe} signal={signal} setSignal={setSignal} />
           </aside>
         )}
@@ -975,6 +1141,7 @@ export default function Dashboard() {
                 <div className="relative">
                   <Chart key={`${activeSymbol}_${timeframe}`} data={candles} patterns={filteredPatterns} height={window.innerWidth < 640 ? 300 : 400} showPatterns={showPatterns} onShowPatternsChange={setShowPatterns} />
                 </div>
+                <MarketCopilot symbol={activeSymbol} />
                 <RecommendationBox trend={trend} patterns={patterns} />
                 <LearningCards />
                 
@@ -996,7 +1163,7 @@ export default function Dashboard() {
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
                 className="flex flex-col gap-4 lg:hidden"
               >
-                <Watchlist activeSymbol={activeSymbol} onSelect={(s) => { setActiveSymbol(s); setMobileView('chart'); }} watchlist={watchlist} setWatchlist={setWatchlist} />
+                <Watchlist activeSymbol={activeSymbol} onSelect={(s) => { setActiveSymbol(s); setMobileView('chart'); }} watchlist={watchlist} setWatchlist={handleSetWatchlist} />
                 <Filters market={market} setMarket={setMarket} timeframe={timeframe} setTimeframe={setTimeframe} signal={signal} setSignal={setSignal} />
               </motion.div>
             )}
@@ -1075,6 +1242,7 @@ export default function Dashboard() {
                 <button onClick={sellAsset} disabled={(portfolio.holdings[activeSymbol] || 0) <= 0} className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-[10px] font-black py-1.5 rounded uppercase">Sell</button>
               </div>
             </div>
+            <MarketCopilot symbol={activeSymbol} />
             <RecommendationBox trend={trend} patterns={patterns} />
             <LearningCards />
             <PatternPanel patterns={filteredPatterns} activeSymbol={activeSymbol} onSymbolChange={setActiveSymbol} />
@@ -1218,6 +1386,73 @@ export default function Dashboard() {
         onToggleMinimize={() => setIsChatBotMinimized(!isChatBotMinimized)}
         portfolioId={portfolioId}
       />
+
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-surface-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-surface-800 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl p-6 relative">
+            <button 
+              onClick={() => setShowSettingsModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+            <h3 className="text-white text-lg font-bold mb-4 flex items-center gap-2">
+              <Settings size={18} className="text-brand-400" /> Account Settings
+            </h3>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3.5 bg-surface-900/50 border border-slate-800 rounded-xl">
+                <div>
+                  <h4 className="text-white text-xs font-bold">Email Alerts</h4>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Receive email notifications for watchlist technical patterns.</p>
+                </div>
+                <button 
+                  onClick={() => handleUpdateSettings({ email_alerts: !userSettings.email_alerts })}
+                  className={`w-10 h-6 rounded-full transition-colors relative focus:outline-none ${userSettings.email_alerts ? 'bg-brand-500' : 'bg-slate-700'}`}
+                >
+                  <span className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userSettings.email_alerts ? 'left-5' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-surface-900/50 border border-slate-800 rounded-xl">
+                <div>
+                  <h4 className="text-white text-xs font-bold">Weekly Summary Reports</h4>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Receive weekly email summaries of paper trading portfolio health.</p>
+                </div>
+                <button 
+                  onClick={() => handleUpdateSettings({ weekly_report: !userSettings.weekly_report })}
+                  className={`w-10 h-6 rounded-full transition-colors relative focus:outline-none ${userSettings.weekly_report ? 'bg-brand-500' : 'bg-slate-700'}`}
+                >
+                  <span className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-all ${userSettings.weekly_report ? 'left-5' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-surface-900/50 border border-slate-800 rounded-xl">
+                <div>
+                  <h4 className="text-white text-xs font-bold">Theme Mode</h4>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Select visual interface appearance.</p>
+                </div>
+                <select
+                  value={userSettings.theme}
+                  onChange={e => handleUpdateSettings({ theme: e.target.value })}
+                  className="bg-surface-800 border border-slate-700 rounded-lg text-xs text-white p-1.5 focus:outline-none"
+                >
+                  <option value="dark">Dark Theme</option>
+                  <option value="light" disabled>Light Theme (Coming Soon)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button 
+                onClick={() => setShowSettingsModal(false)}
+                className="bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-lg"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

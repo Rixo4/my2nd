@@ -14,6 +14,16 @@ import {
   resetPortfolio,
 } from '../src/services/paper_trading_service.js'
 import { getCurrentMarketPrice, fetchLivePrice } from '../src/trading/paper_trading/executors.js'
+import { validateBody, portfolioSchema, positionSchema, resetSchema } from '../src/middlewares/validation.js'
+import {
+  getWatchlist,
+  addToWatchlist,
+  removeFromWatchlist,
+  getUserNotifications,
+  markNotificationRead,
+  getUserSettings,
+  updateUserSettings
+} from '../src/trading/paper_trading/models.js'
 
 const router = Router()
 
@@ -36,13 +46,10 @@ function fail(res, error, status = 400) {
  * Create a new paper trading portfolio.
  * Body: { name?: string, startingBalance?: number }
  */
-router.post('/portfolio', (req, res) => {
+router.post('/portfolio', validateBody(portfolioSchema), async (req, res) => {
   try {
     const { id, name, startingBalance } = req.body || {}
-    if (startingBalance !== undefined && (isNaN(startingBalance) || startingBalance < 100)) {
-      return fail(res, 'startingBalance must be a number >= 100')
-    }
-    const result = createNewPortfolio({ id, name, startingBalance })
+    const result = await createNewPortfolio({ id, name, startingBalance })
     ok(res, result, 201)
   } catch (err) {
     console.error('[paper/portfolio POST]', err)
@@ -54,9 +61,9 @@ router.post('/portfolio', (req, res) => {
  * GET /api/v1/paper/portfolio/:id
  * Get full portfolio summary.
  */
-router.get('/portfolio/:id', (req, res) => {
+router.get('/portfolio/:id', async (req, res) => {
   try {
-    const result = getPortfolioSummary(req.params.id)
+    const result = await getPortfolioSummary(req.params.id)
     if (!result.success) return fail(res, result.error, 404)
     ok(res, result)
   } catch (err) {
@@ -74,16 +81,13 @@ router.get('/portfolio/:id', (req, res) => {
  * Open a new position (BUY order).
  * Body: { portfolioId, symbol, quantity }
  */
-router.post('/positions', async (req, res) => {
+router.post('/positions', validateBody(positionSchema), async (req, res) => {
   try {
     const { portfolioId, symbol, quantity } = req.body || {}
-    if (!portfolioId) return fail(res, 'Missing required field: portfolioId')
-    if (!symbol)      return fail(res, 'Missing required field: symbol')
-    if (!quantity)    return fail(res, 'Missing required field: quantity')
 
     // Fetch live market price before opening the position
     const livePrice = await fetchLivePrice(symbol)
-    const result = openNewPosition({ portfolioId, symbol, quantity: Number(quantity), overridePrice: livePrice })
+    const result = await openNewPosition({ portfolioId, symbol, quantity: Number(quantity), overridePrice: livePrice })
     if (!result.success) return fail(res, result.error)
     ok(res, result, 201)
   } catch (err) {
@@ -97,9 +101,9 @@ router.post('/positions', async (req, res) => {
  * Get all open positions for a portfolio.
  * (Positions are returned inside the portfolio summary)
  */
-router.get('/positions/:portfolioId', (req, res) => {
+router.get('/positions/:portfolioId', async (req, res) => {
   try {
-    const result = getPortfolioSummary(req.params.portfolioId)
+    const result = await getPortfolioSummary(req.params.portfolioId)
     if (!result.success) return fail(res, result.error, 404)
     ok(res, { positions: result.portfolio.positions })
   } catch (err) {
@@ -119,11 +123,11 @@ router.delete('/positions/:positionId', async (req, res) => {
     if (!portfolioId) return fail(res, 'Missing query param: portfolioId')
 
     // Get position symbol to fetch live close price
-    const portfolio = getPortfolioSummary(portfolioId)
+    const portfolio = await getPortfolioSummary(portfolioId)
     const position = portfolio?.portfolio?.positions?.find(p => p.id === req.params.positionId)
     const liveClosePrice = position ? await fetchLivePrice(position.symbol) : null
 
-    const result = closeExistingPosition({ portfolioId, positionId: req.params.positionId, overridePrice: liveClosePrice })
+    const result = await closeExistingPosition({ portfolioId, positionId: req.params.positionId, overridePrice: liveClosePrice })
     if (!result.success) return fail(res, result.error)
     ok(res, result)
   } catch (err) {
@@ -140,10 +144,10 @@ router.delete('/positions/:positionId', async (req, res) => {
  * GET /api/v1/paper/trades/:portfolioId
  * Get trade history. Optional: ?symbol=BTC&limit=20&offset=0
  */
-router.get('/trades/:portfolioId', (req, res) => {
+router.get('/trades/:portfolioId', async (req, res) => {
   try {
     const { symbol, limit, offset } = req.query
-    const result = getTradeHistory({
+    const result = await getTradeHistory({
       portfolioId: req.params.portfolioId,
       symbol,
       limit:  limit  ? Number(limit)  : 50,
@@ -165,9 +169,9 @@ router.get('/trades/:portfolioId', (req, res) => {
  * GET /api/v1/paper/metrics/:portfolioId
  * Get performance analytics (win rate, drawdown, Sharpe, etc.)
  */
-router.get('/metrics/:portfolioId', (req, res) => {
+router.get('/metrics/:portfolioId', async (req, res) => {
   try {
-    const result = getPortfolioMetrics(req.params.portfolioId)
+    const result = await getPortfolioMetrics(req.params.portfolioId)
     if (!result.success) return fail(res, result.error, 404)
     ok(res, result)
   } catch (err) {
@@ -185,13 +189,10 @@ router.get('/metrics/:portfolioId', (req, res) => {
  * Wipe all trades/positions and reset cash balance.
  * Body: { newBalance?: number }
  */
-router.post('/reset/:portfolioId', (req, res) => {
+router.post('/reset/:portfolioId', validateBody(resetSchema), async (req, res) => {
   try {
     const { newBalance } = req.body || {}
-    if (newBalance !== undefined && (isNaN(newBalance) || newBalance < 100)) {
-      return fail(res, 'newBalance must be a number >= 100')
-    }
-    const result = resetPortfolio({
+    const result = await resetPortfolio({
       portfolioId: req.params.portfolioId,
       newBalance: newBalance ? Number(newBalance) : undefined,
     })
@@ -370,6 +371,78 @@ router.get('/market-mood', async (req, res) => {
       overall: { percent: 57, sentiment: 'Bullish' },
       source:  'fallback'
     }})
+  }
+})
+
+// ─── Watchlist Routes ────────────────────────────────────────────────────────
+router.get('/watchlist/:userId', async (req, res) => {
+  try {
+    const list = await getWatchlist(req.params.userId)
+    ok(res, { watchlist: list })
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+router.post('/watchlist', async (req, res) => {
+  try {
+    const { userId, symbol } = req.body || {}
+    if (!userId || !symbol) return fail(res, 'Missing userId or symbol')
+    const item = await addToWatchlist(userId, symbol)
+    ok(res, { item })
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+router.delete('/watchlist/:userId/:symbol', async (req, res) => {
+  try {
+    const result = await removeFromWatchlist(req.params.userId, req.params.symbol)
+    ok(res, result)
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+// ─── Notifications Routes ──────────────────────────────────────────────────
+router.get('/notifications/:userId', async (req, res) => {
+  try {
+    const list = await getUserNotifications(req.params.userId)
+    ok(res, { notifications: list })
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+router.post('/notifications/read', async (req, res) => {
+  try {
+    const { userId, notificationId } = req.body || {}
+    if (!userId || !notificationId) return fail(res, 'Missing userId or notificationId')
+    const result = await markNotificationRead(userId, notificationId)
+    ok(res, { success: true })
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+// ─── Settings Routes ───────────────────────────────────────────────────────
+router.get('/settings/:userId', async (req, res) => {
+  try {
+    const settings = await getUserSettings(req.params.userId)
+    ok(res, { settings })
+  } catch (err) {
+    fail(res, err.message, 500)
+  }
+})
+
+router.post('/settings', async (req, res) => {
+  try {
+    const { userId, email_alerts, weekly_report, theme } = req.body || {}
+    if (!userId) return fail(res, 'Missing userId')
+    const settings = await updateUserSettings(userId, { email_alerts, weekly_report, theme })
+    ok(res, { settings })
+  } catch (err) {
+    fail(res, err.message, 500)
   }
 })
 

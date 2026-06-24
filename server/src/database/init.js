@@ -145,6 +145,45 @@ export function initDatabase() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_news_symbol ON news_sentiment(symbol);
+
+    -- ────────────────────────────────────────────────────────────
+    -- 7. WATCHLISTS (watchlists)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS watchlists (
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT NOT NULL,
+      symbol          TEXT NOT NULL,
+      created_at      INTEGER NOT NULL,
+      UNIQUE(user_id, symbol)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_local_watchlists_user ON watchlists(user_id);
+
+    -- ────────────────────────────────────────────────────────────
+    -- 8. NOTIFICATIONS (notifications)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS notifications (
+      id              TEXT PRIMARY KEY,
+      user_id         TEXT NOT NULL,
+      title           TEXT NOT NULL,
+      message         TEXT NOT NULL,
+      read            INTEGER DEFAULT 0 CHECK(read IN (0, 1)),
+      created_at      INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_local_notifications_user ON notifications(user_id);
+
+    -- ────────────────────────────────────────────────────────────
+    -- 9. SETTINGS (settings)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS settings (
+      user_id         TEXT PRIMARY KEY,
+      email_alerts    INTEGER DEFAULT 1 CHECK(email_alerts IN (0, 1)),
+      weekly_report   INTEGER DEFAULT 1 CHECK(weekly_report IN (0, 1)),
+      theme           TEXT DEFAULT 'dark',
+      created_at      INTEGER NOT NULL,
+      updated_at      INTEGER NOT NULL
+    );
   `)
 
   // Expire caches older than 6 hours at start

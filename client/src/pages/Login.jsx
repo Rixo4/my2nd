@@ -14,7 +14,7 @@ export default function Login() {
   // Instructions panel toggle
   const [showConfigHelp, setShowConfigHelp] = useState(false)
   
-  const { loginWithOAuth, loginWithEmail, registerWithEmail, isAuthenticated, isFirebaseConfigured } = useAuth()
+  const { loginWithOAuth, loginWithEmail, registerWithEmail, isAuthenticated, isSupabaseConfigured } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -39,17 +39,7 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login submission error:', err)
-      if (err.code === 'auth/configuration-not-found') {
-        setError("Email/Password sign-in provider is disabled in your Firebase Console. Please go to: Firebase Console > Authentication > Sign-in method, and enable 'Email/Password'.")
-      } else if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError('Invalid email address or password.')
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('An account already exists with this email address.')
-      } else if (err.code === 'auth/weak-password') {
-        setError('Password must be at least 6 characters long.')
-      } else {
-        setError(err.message || 'Authentication failed. Please verify credentials.')
-      }
+      setError(err.message || 'Authentication failed. Please verify credentials.')
     } finally {
       setLoading(false)
     }
@@ -62,13 +52,7 @@ export default function Login() {
       await loginWithOAuth(provider)
     } catch (err) {
       console.error('OAuth sign-in error:', err)
-      if (err.code === 'auth/popup-blocked') {
-        setError('Popup was blocked by your browser. Please enable popups for this site.')
-      } else if (err.code === 'auth/popup-closed-by-user') {
-        setError('Login popup closed before completion.')
-      } else {
-        setError(err.message || 'OAuth authentication failed.')
-      }
+      setError(err.message || 'OAuth authentication failed.')
     } finally {
       setLoading(false)
     }
@@ -98,11 +82,11 @@ export default function Login() {
 
         {/* Configuration Status Banner */}
         <div className="mb-4">
-          {isFirebaseConfigured ? (
+          {isSupabaseConfigured ? (
             <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-3.5 rounded-2xl flex items-center justify-between text-xs gap-3">
               <div className="flex items-center gap-2">
                 <ShieldCheck size={16} className="text-emerald-400 shrink-0" />
-                <span>Verified Cloud Authentication is Active (Firebase)</span>
+                <span>Verified Cloud Authentication is Active (Supabase)</span>
               </div>
             </div>
           ) : (
@@ -126,16 +110,14 @@ export default function Login() {
                   animate={{ opacity: 1, height: 'auto' }}
                   className="mt-2 pt-2 border-t border-amber-500/10 text-[10px] text-slate-400 flex flex-col gap-2 leading-relaxed"
                 >
-                  <p>To connect verified Google/GitHub login, add these variables to your client <code className="text-amber-300">.env</code> file:</p>
+                  <p>To connect verified Supabase login, add these variables to your client <code className="text-amber-300">.env</code> file:</p>
                   <pre className="bg-slate-950 p-2.5 rounded-lg text-slate-300 font-mono text-[9px] overflow-x-auto whitespace-pre-wrap select-all">
-                    VITE_FIREBASE_API_KEY=your_key_here{"\n"}
-                    VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com{"\n"}
-                    VITE_FIREBASE_PROJECT_ID=your_project_id{"\n"}
-                    VITE_FIREBASE_APP_ID=your_app_id
+                    VITE_SUPABASE_URL=your_project_url{"\n"}
+                    VITE_SUPABASE_ANON_KEY=your_anon_key
                   </pre>
                   <p className="flex items-start gap-1">
                     <HelpCircle size={10} className="mt-0.5 shrink-0" />
-                    <span>Enable Google and GitHub OAuth providers under Build &gt; Authentication in the Firebase console.</span>
+                    <span>Enable Google and GitHub OAuth providers under Auth &gt; Providers in the Supabase console.</span>
                   </p>
                 </motion.div>
               )}

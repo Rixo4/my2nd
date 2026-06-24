@@ -11,10 +11,10 @@ import { roundPrice } from '../common/utils.js'
  * marked to the latest market price.
  *
  * @param {string} portfolioId
- * @returns {{ positions: object[], positionsValue: number }}
+ * @returns {Promise<{ positions: object[], positionsValue: number }>}
  */
-export function markPositionsToMarket(portfolioId) {
-  const positions = getOpenPositions(portfolioId)
+export async function markPositionsToMarket(portfolioId) {
+  const positions = await getOpenPositions(portfolioId)
   let positionsValue = 0
 
   const enriched = positions.map((pos) => {
@@ -49,10 +49,10 @@ export function markPositionsToMarket(portfolioId) {
  *
  * @param {object} portfolio - Raw portfolio record from DB
  * @param {object[]} trades  - All trades for this portfolio
- * @returns {object}
+ * @returns {Promise<object>}
  */
-export function buildPortfolioSummary(portfolio, trades = []) {
-  const { positions, positionsValue } = markPositionsToMarket(portfolio.id)
+export async function buildPortfolioSummary(portfolio, trades = []) {
+  const { positions, positionsValue } = await markPositionsToMarket(portfolio.id)
   const totalValue = roundPrice(portfolio.cash_balance + positionsValue)
   const totalReturn = roundPrice(totalValue - portfolio.starting_balance)
   const totalReturnPercent = portfolio.starting_balance > 0

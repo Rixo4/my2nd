@@ -1,9 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
-import { 
-  signInWithPopup, signOut, onAuthStateChanged, 
-  signInWithEmailAndPassword, createUserWithEmailAndPassword 
-} from 'firebase/auth'
-import { auth, googleProvider, githubProvider, isFirebaseConfigured } from '../utils/firebase'
+import { supabase, isSupabaseConfigured } from '../utils/supabase'
 
 const AuthContext = createContext(null)
 
@@ -11,9 +7,9 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Listen for Firebase auth state changes
+  // Listen for Supabase auth state changes
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       const saved = localStorage.getItem('tradewise_auth_user')
       if (saved) {
         setUser(JSON.parse(saved))
@@ -22,15 +18,32 @@ export function AuthProvider({ children }) {
       return
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        // Map user data
+    // Get active session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
         const mappedUser = {
-          uid: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Firebase User',
-          email: firebaseUser.email,
-          avatar: firebaseUser.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-          provider: firebaseUser.providerData?.[0]?.providerId === 'google.com' ? 'Google' : 'GitHub'
+          uid: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Trader',
+          email: session.user.email,
+          avatar: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+          provider: session.user.app_metadata?.provider || 'Email Credentials'
+        }
+        localStorage.setItem('tradewise_auth_user', JSON.stringify(mappedUser))
+        setUser(mappedUser)
+      } else {
+        setUser(null)
+      }
+      setLoading(false)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        const mappedUser = {
+          uid: session.user.id,
+          name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Trader',
+          email: session.user.email,
+          avatar: session.user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+          provider: session.user.app_metadata?.provider || 'Email Credentials'
         }
         localStorage.setItem('tradewise_auth_user', JSON.stringify(mappedUser))
         setUser(mappedUser)
@@ -42,11 +55,11 @@ export function AuthProvider({ children }) {
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    return () => subscription.unsubscribe()
   }, [])
 
   const loginWithOAuth = async (providerName) => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       let mockUser = {}
       if (providerName === 'google') {
         mockUser = {
@@ -71,17 +84,22 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const provider = providerName === 'google' ? googleProvider : githubProvider
-      const result = await signInWithPopup(auth, provider)
-      return { success: true, user: result.user }
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: providerName,
+        options: {
+          redirectTo: window.location.origin
+        }
+      })
+      if (error) throw error
+      return { success: true, data }
     } catch (err) {
-      console.error('Firebase OAuth Error:', err)
+      console.error('Supabase OAuth Error:', err)
       throw err
     }
   }
 
   const loginWithEmail = async (email, password) => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       const mockUser = {
         uid: 'mock-cred-uid-99999',
         name: email.split('@')[0] || 'Wise Trader',
@@ -95,16 +113,17 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const result = await signInWithEmailAndPassword(auth, email, password)
-      return { success: true, user: result.user }
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw error
+      return { success: true, user: data.user }
     } catch (err) {
-      console.error('Firebase Email Login Error:', err)
+      console.error('Supabase Email Login Error:', err)
       throw err
     }
   }
 
   const registerWithEmail = async (email, password) => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       const mockUser = {
         uid: 'mock-cred-uid-99999',
         name: email.split('@')[0] || 'Wise Trader',
@@ -118,10 +137,11 @@ export function AuthProvider({ children }) {
     }
 
     try {
-      const result = await createUserWithEmailAndPassword(auth, email, password)
-      return { success: true, user: result.user }
+      const { data, error } = await supabase.auth.signUp({ email, password })
+      if (error) throw error
+      return { success: true, user: data.user }
     } catch (err) {
-      console.error('Firebase Email Register Error:', err)
+      console.error('Supabase Email Register Error:', err)
       throw err
     }
   }
@@ -131,11 +151,11 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('tradewise_paper_portfolio_id')
     setUser(null)
 
-    if (isFirebaseConfigured) {
+    if (isSupabaseConfigured) {
       try {
-        await signOut(auth)
+        await supabase.auth.signOut()
       } catch (err) {
-        console.error('Firebase SignOut Error:', err)
+        console.error('Supabase SignOut Error:', err)
       }
     }
   }
@@ -151,7 +171,7 @@ export function AuthProvider({ children }) {
       loginWithEmail, 
       registerWithEmail, 
       logout,
-      isFirebaseConfigured 
+      isSupabaseConfigured 
     }}>
       {children}
     </AuthContext.Provider>

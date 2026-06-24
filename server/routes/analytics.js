@@ -7,14 +7,14 @@ const router = Router()
  * GET /api/analytics/pattern-sentiment-matrix
  * Retrieve win rate correlations of patterns grouped by news sentiment regimes.
  */
-router.get('/pattern-sentiment-matrix', (req, res) => {
+router.get('/pattern-sentiment-matrix', async (req, res) => {
   try {
     const { portfolioId } = req.query || {}
     if (!portfolioId) {
       return res.status(400).json({ success: false, error: 'Missing required portfolioId query parameter' })
     }
 
-    const correlation = getPatternSentimentCorrelation(portfolioId)
+    const correlation = await getPatternSentimentCorrelation(portfolioId)
     res.json({ success: true, correlation })
   } catch (err) {
     console.error('Error fetching pattern sentiment matrix:', err.message)

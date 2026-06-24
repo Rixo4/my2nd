@@ -26,7 +26,7 @@ const SYMBOL_ATRS = {
  * @returns {Promise<object>}
  */
 export async function calculatePositionSize({ portfolioId, symbol, riskPercent = 1, patternName = '', patternWinRate = 50 }) {
-  const portfolio = getPortfolio(portfolioId)
+  const portfolio = await getPortfolio(portfolioId)
   if (!portfolio) {
     throw new Error('Portfolio not found')
   }

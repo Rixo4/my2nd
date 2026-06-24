@@ -1,107 +1,79 @@
-/**
- * Binance WebSocket Service for Real-Time OHLC Data
- */
+import { io } from 'socket.io-client'
 
-const BINANCE_WS_BASE = 'wss://stream.binance.com:9443/ws';
-const BINANCE_API_KEY = import.meta.env.VITE_BINANCE_API_KEY || '';
+const BACKEND_URL = 'http://localhost:5000'
 
 export class BinanceService {
   constructor(symbol, timeframe, onUpdate) {
-    this.symbol = symbol.toLowerCase().replace('/', '');
-    this.timeframe = this.mapTimeframe(timeframe);
-    this.onUpdate = onUpdate;
-    this.ws = null;
-    this.reconnectAttempts = 0;
-    this.isDisconnected = false;
-    this.reconnectTimeout = null;
-  }
-
-  mapTimeframe(tf) {
-    const maps = {
-      '1m': '1m',
-      '5m': '5m',
-      '15m': '15m',
-      '1h': '1h',
-      '4h': '4h',
-      '1d': '1d',
-      '1w': '1w'
-    };
-    return maps[tf] || '1d';
+    let s = symbol.toUpperCase().replace('/', '')
+    if (s.endsWith('USDT')) s = s.slice(0, -4)
+    this.symbol = s
+    this.timeframe = timeframe
+    this.onUpdate = onUpdate
+    this.socket = null
+    this.isDisconnected = false
   }
 
   connect() {
-    if (this.isDisconnected) return;
-    if (this.ws) this.ws.close();
+    if (this.isDisconnected) return
+    if (this.socket) this.socket.disconnect()
 
-    const streamName = `${this.symbol}@kline_${this.timeframe}`;
-    this.ws = new WebSocket(`${BINANCE_WS_BASE}/${streamName}`);
+    this.socket = io(BACKEND_URL)
 
-    this.ws.onopen = () => {
-      console.log(`Connected to Binance: ${streamName}`);
-      this.reconnectAttempts = 0;
-    };
+    this.socket.on('connect', () => {
+      console.log(`Connected to consolidated backend Socket.io for: ${this.symbol}`)
+      this.socket.emit('subscribe', { symbol: this.symbol, timeframe: this.timeframe })
+    })
 
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.e === 'kline') {
-        const k = data.k;
-        const candle = {
-          time: k.t / 1000, // Convert to seconds
-          open: parseFloat(k.o),
-          high: parseFloat(k.h),
-          low: parseFloat(k.l),
-          close: parseFloat(k.c),
-          volume: parseFloat(k.v),
-          isFinal: k.x
-        };
-        this.onUpdate(candle);
-      }
-    };
+    this.socket.on('candle-update', (candle) => {
+      this.onUpdate(candle)
+    })
 
-    this.ws.onclose = () => {
-      console.log('Binance WS closed');
-      if (!this.isDisconnected && this.reconnectAttempts < 5) {
-        this.reconnectTimeout = setTimeout(() => {
-          this.reconnectAttempts++;
-          this.connect();
-        }, 3000);
-      }
-    };
+    this.socket.on('disconnect', () => {
+      console.log('Socket.io connection closed')
+    })
 
-    this.ws.onerror = (err) => {
-      console.error('Binance WS Error:', err);
-    };
+    this.socket.on('connect_error', (err) => {
+      console.error('Socket.io connection error:', err)
+    })
   }
 
   disconnect() {
-    this.isDisconnected = true;
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
-      this.reconnectTimeout = null;
-    }
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
+    this.isDisconnected = true
+    if (this.socket) {
+      this.socket.emit('unsubscribe', { symbol: this.symbol, timeframe: this.timeframe })
+      this.socket.disconnect()
+      this.socket = null
     }
   }
 
   static async getHistoricalData(symbol, timeframe, limit = 100) {
-    const s = symbol.toUpperCase().replace('/', '');
-    const tf = timeframe || '1d';
+    let s = symbol.toUpperCase().replace('/', '')
+    if (s.endsWith('USDT')) s = s.slice(0, -4)
+    const tf = timeframe || '1d'
     try {
-      const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}&interval=${tf}&limit=${limit}`);
-      const data = await response.json();
-      return data.map(d => ({
-        time: d[0] / 1000,
-        open: parseFloat(d[1]),
-        high: parseFloat(d[2]),
-        low: parseFloat(d[3]),
-        close: parseFloat(d[4]),
-        volume: parseFloat(d[5])
-      }));
+      const response = await fetch(`http://localhost:5000/api/market/ohlc/${s}?timeframe=${tf}&limit=${limit}`)
+      const resData = await response.json()
+      if (resData.success && resData.data) {
+        return resData.data
+      }
+      return []
     } catch (err) {
-      console.error('Error fetching Binance historical data:', err);
-      return [];
+      console.error('Error fetching historical data from consolidated backend:', err)
+      try {
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${s}USDT&interval=${tf}&limit=${limit}`)
+        const data = await response.json()
+        return data.map(d => ({
+          time: d[0] / 1000,
+          open: parseFloat(d[1]),
+          high: parseFloat(d[2]),
+          low: parseFloat(d[3]),
+          close: parseFloat(d[4]),
+          volume: parseFloat(d[5])
+        }))
+      } catch (e) {
+        console.error('Binance fallback historical data failed:', e)
+        return []
+      }
     }
   }
 }

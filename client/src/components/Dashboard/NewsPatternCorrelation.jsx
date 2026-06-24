@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { 
-  Scale, RefreshCw, HelpCircle, TrendingUp, Info, Search, Filter, Star, 
-  SlidersHorizontal, ShieldAlert, ArrowUpRight, BarChart3, Grid3X3, 
+import {
+  Scale, TrendingUp, Search, Star,
+  SlidersHorizontal, ShieldAlert, ArrowUpRight, BarChart3, Grid3X3,
   LayoutGrid, X, Check, Award, TrendingDown, Clock, Activity, MessageSquare
 } from 'lucide-react'
 
@@ -151,7 +151,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
 
       // Time range adjustments simulation
       const adjustmentFactor = timeRange === '7d' ? 0.96 : timeRange === '30d' ? 0.98 : timeRange === '90d' ? 1.01 : 1.0
-      
+
       const bullish = bullishVal !== null ? Math.min(99, Math.max(10, Math.round(bullishVal * adjustmentFactor))) : null
       const neutral = neutralVal !== null ? Math.min(99, Math.max(10, Math.round(neutralVal * adjustmentFactor))) : null
       const bearish = bearishVal !== null ? Math.min(99, Math.max(10, Math.round(bearishVal * adjustmentFactor))) : null
@@ -200,8 +200,8 @@ export default function NewsPatternCorrelation({ portfolioId }) {
       // 2. Sentiment filter
       if (activeSentiment !== 'All') {
         const rate = activeSentiment === 'Bullish' ? pattern.bullish :
-                     activeSentiment === 'Neutral' ? pattern.neutral :
-                     pattern.bearish
+          activeSentiment === 'Neutral' ? pattern.neutral :
+            pattern.bearish
         if (rate === null) return false
       }
 
@@ -232,7 +232,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
   // Key metrics calculation
   const keyMetrics = useMemo(() => {
     if (patternsList.length === 0) return { bestBullish: 'N/A', avgWin: 0, totalTrades: 0 }
-    
+
     // Find best bullish success rate pattern
     const bullishPatterns = patternsList.filter(p => p.bullish !== null)
     const bestBullishPattern = bullishPatterns.length > 0
@@ -312,23 +312,22 @@ export default function NewsPatternCorrelation({ portfolioId }) {
           <div className="flex flex-wrap items-center gap-1.5 mt-1">
             {['All', 'Bullish', 'Neutral', 'Bearish'].map(s => {
               const isActive = activeSentiment === s
-              const colorClass = 
+              const colorClass =
                 s === 'Bullish' ? 'hover:border-[#10B981]/40 text-[#10B981] bg-[#10B981]/5 border-[#10B981]/20' :
-                s === 'Neutral' ? 'hover:border-[#8B5CF6]/40 text-[#8B5CF6] bg-[#8B5CF6]/5 border-[#8B5CF6]/20' :
-                s === 'Bearish' ? 'hover:border-[#EF4444]/40 text-[#EF4444] bg-[#EF4444]/5 border-[#EF4444]/20' :
-                'hover:border-slate-600 text-slate-300 bg-slate-800/40 border-slate-800'
+                  s === 'Neutral' ? 'hover:border-[#8B5CF6]/40 text-[#8B5CF6] bg-[#8B5CF6]/5 border-[#8B5CF6]/20' :
+                    s === 'Bearish' ? 'hover:border-[#EF4444]/40 text-[#EF4444] bg-[#EF4444]/5 border-[#EF4444]/20' :
+                      'hover:border-slate-600 text-slate-300 bg-slate-800/40 border-slate-800'
               const activeColorClass =
                 s === 'Bullish' ? 'bg-[#10B981] text-[#1a1a1a] shadow-lg shadow-[#10B981]/20 border-[#10B981]' :
-                s === 'Neutral' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/20 border-[#8B5CF6]' :
-                s === 'Bearish' ? 'bg-[#EF4444] text-[#1a1a1a] shadow-lg shadow-[#EF4444]/20 border-[#EF4444]' :
-                'bg-slate-700 text-white border-slate-600'
+                  s === 'Neutral' ? 'bg-[#8B5CF6] text-white shadow-lg shadow-[#8B5CF6]/20 border-[#8B5CF6]' :
+                    s === 'Bearish' ? 'bg-[#EF4444] text-[#1a1a1a] shadow-lg shadow-[#EF4444]/20 border-[#EF4444]' :
+                      'bg-slate-700 text-white border-slate-600'
               return (
                 <button
                   key={s}
                   onClick={() => setActiveSentiment(s)}
-                  className={`px-2 py-1 md:px-3 md:py-1.5 rounded-xl text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${
-                    isActive ? activeColorClass : colorClass
-                  }`}
+                  className={`px-2 py-1 md:px-3 md:py-1.5 rounded-xl text-[9px] md:text-[10px] font-bold uppercase tracking-wider transition-all duration-200 border cursor-pointer ${isActive ? activeColorClass : colorClass
+                    }`}
                 >
                   {s} {s === 'Bullish' && '↑'} {s === 'Neutral' && '→'} {s === 'Bearish' && '↓'}
                 </button>
@@ -344,11 +343,10 @@ export default function NewsPatternCorrelation({ portfolioId }) {
               <button
                 key={t}
                 onClick={() => setTimeRange(t)}
-                className={`flex-1 md:flex-none px-2 py-1 rounded-lg text-[8.5px] md:text-[9px] font-bold uppercase transition-all duration-200 cursor-pointer ${
-                  timeRange === t 
-                    ? 'bg-slate-800 text-white border border-[#374151] shadow-sm' 
+                className={`flex-1 md:flex-none px-2 py-1 rounded-lg text-[8.5px] md:text-[9px] font-bold uppercase transition-all duration-200 cursor-pointer ${timeRange === t
+                    ? 'bg-slate-800 text-white border border-[#374151] shadow-sm'
                     : 'text-slate-400 hover:text-white border border-transparent'
-                }`}
+                  }`}
               >
                 {t === 'all' ? 'All Time' : t}
               </button>
@@ -422,7 +420,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                 <option value="name">Alphabetical</option>
               </select>
             </div>
-            
+
             <button
               onClick={() => {
                 setSearch('')
@@ -469,7 +467,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
 
         {/* Main Content Area */}
         <div className="lg:col-span-9 flex flex-col gap-6">
-          
+
           {/* Metrics KPIs Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-gradient-to-br from-[#2a2a2a] to-[#1f1f1f] border border-[#374151] rounded-2xl p-5 shadow-md flex items-center justify-between">
@@ -517,27 +515,24 @@ export default function NewsPatternCorrelation({ portfolioId }) {
             <div className="flex items-center gap-1 bg-[#1a1a1a] p-1 rounded-xl border border-slate-800">
               <button
                 onClick={() => setActiveView('cards')}
-                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeView === 'cards' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
-                }`}
+                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'cards' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
+                  }`}
               >
                 <LayoutGrid size={13} />
                 Card View
               </button>
               <button
                 onClick={() => setActiveView('charts')}
-                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeView === 'charts' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
-                }`}
+                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'charts' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
+                  }`}
               >
                 <BarChart3 size={13} />
                 Regimes Chart
               </button>
               <button
                 onClick={() => setActiveView('heatmap')}
-                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeView === 'heatmap' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
-                }`}
+                className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${activeView === 'heatmap' ? 'bg-[#8B5CF6] text-white shadow-md shadow-[#8B5CF6]/10' : 'text-slate-400 hover:text-white'
+                  }`}
               >
                 <Grid3X3 size={13} />
                 Heatmap Matrix
@@ -669,14 +664,14 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                               Overall: <strong className="text-white font-mono font-bold">{pattern.overallWinRate}%</strong>
                             </span>
                           </div>
-                          
+
                           <div className="flex flex-col gap-1 mt-1 pl-6">
                             {/* Bullish news bar */}
                             {pattern.bullish !== null && (
                               <div className="flex items-center gap-3 text-[10px]">
                                 <span className="w-12 text-[#10B981] font-bold">Bullish:</span>
                                 <div className="flex-1 bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                                  <div 
+                                  <div
                                     className="bg-gradient-to-r from-[#10B981]/50 to-[#10B981] h-full rounded-full transition-all duration-800"
                                     style={{ width: `${pattern.bullish}%` }}
                                   />
@@ -690,7 +685,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                               <div className="flex items-center gap-3 text-[10px]">
                                 <span className="w-12 text-[#8B5CF6] font-bold">Neutral:</span>
                                 <div className="flex-1 bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                                  <div 
+                                  <div
                                     className="bg-gradient-to-r from-[#8B5CF6]/50 to-[#8B5CF6] h-full rounded-full transition-all duration-800"
                                     style={{ width: `${pattern.neutral}%` }}
                                   />
@@ -704,7 +699,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                               <div className="flex items-center gap-3 text-[10px]">
                                 <span className="w-12 text-[#EF4444] font-bold">Bearish:</span>
                                 <div className="flex-1 bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-800">
-                                  <div 
+                                  <div
                                     className="bg-gradient-to-r from-[#EF4444]/50 to-[#EF4444] h-full rounded-full transition-all duration-800"
                                     style={{ width: `${pattern.bearish}%` }}
                                   />
@@ -769,7 +764,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                     <span className="font-bold text-slate-300 uppercase tracking-widest text-[8px] mr-1">Legend Tiers:</span>
                     <div className="flex items-center gap-2">
                       <div className="w-3.5 h-3.5 rounded bg-[#10B981]/15 border border-[#10B981]/25 text-[#10B981] font-bold text-[8px] flex items-center justify-center">70%</div>
-                      <span>Strong (>= 70%)</span>
+                      <span>Strong (&gt;= 70%)</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-3.5 h-3.5 rounded bg-[#8B5CF6]/15 border border-[#8B5CF6]/20 text-[#8B5CF6] font-bold text-[8px] flex items-center justify-center">60%</div>
@@ -811,7 +806,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
               <div className="md:col-span-8 flex flex-col gap-3 justify-center">
                 <p className="text-[10px] text-indigo-400 font-bold uppercase tracking-wider">Top Recommended Actions:</p>
                 <ul className="space-y-2 text-xs text-slate-400 leading-relaxed font-semibold">
-                  {matrixData.insights.map((insight, idx) => (
+                  {matrixData?.insights?.map((insight, idx) => (
                     <li key={idx} className="flex gap-2.5 items-start bg-slate-950/20 p-2 border border-slate-900 rounded-xl">
                       <span className="text-indigo-400 font-extrabold">•</span>
                       <span>{insight}</span>
@@ -846,7 +841,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
       {selectedPattern && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-[#2a2a2a] border border-[#374151] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
-            
+
             {/* Modal Header */}
             <div className="bg-slate-900/90 border-b border-[#374151] px-5 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -885,7 +880,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
                     {selectedPattern.avgPnl}
                   </span>
                 </div>
-                
+
                 <div className="bg-slate-950/20 border border-slate-900 rounded-xl p-3 flex flex-col">
                   <span className="text-[8px] text-slate-500 font-black uppercase tracking-wider flex items-center gap-1">
                     <Clock size={10} className="text-indigo-400" /> Avg Hold Duration
@@ -917,7 +912,7 @@ export default function NewsPatternCorrelation({ portfolioId }) {
               {/* Regime Progress Bars */}
               <div className="flex flex-col gap-2.5 mt-2 bg-slate-950/25 border border-slate-900 p-4 rounded-xl">
                 <span className="text-[9px] text-slate-500 font-black uppercase tracking-wider">Regime Performance Breakdown</span>
-                
+
                 <div className="flex flex-col gap-1 mt-1">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-300 font-semibold flex items-center gap-1.5">

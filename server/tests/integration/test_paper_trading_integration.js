@@ -5,7 +5,7 @@
  * Run: npx vitest run tests/integration/test_paper_trading_integration.js
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import {
   createNewPortfolio,
   getPortfolioSummary,
@@ -15,6 +15,11 @@ import {
   getPortfolioMetrics,
   resetPortfolio,
 } from '../../src/services/paper_trading_service.js'
+import { initDatabase } from '../../src/database/init.js'
+
+beforeAll(async () => {
+  initDatabase()
+})
 
 let portfolioId = null
 let positionId  = null
@@ -24,8 +29,8 @@ let positionId  = null
 describe('Paper Trading Integration', () => {
 
   describe('1. Create Portfolio', () => {
-    it('creates a portfolio with default balance of $10,000', () => {
-      const result = createNewPortfolio({ name: 'Integration Test Portfolio' })
+    it('creates a portfolio with default balance of $10,000', async () => {
+      const result = await createNewPortfolio({ name: 'Integration Test Portfolio' })
       expect(result.success).toBe(true)
       expect(result.portfolio).toBeDefined()
       expect(result.portfolio.cash_balance).toBe(10000)
@@ -33,8 +38,8 @@ describe('Paper Trading Integration', () => {
       portfolioId = result.portfolio.id
     })
 
-    it('creates a portfolio with a custom balance', () => {
-      const result = createNewPortfolio({ name: 'Custom Balance', startingBalance: 50000 })
+    it('creates a portfolio with a custom balance', async () => {
+      const result = await createNewPortfolio({ name: 'Custom Balance', startingBalance: 50000 })
       expect(result.success).toBe(true)
       expect(result.portfolio.cash_balance).toBe(50000)
     })
@@ -48,19 +53,19 @@ describe('Paper Trading Integration', () => {
   // ─── Get Portfolio ─────────────────────────────────────────────────────────
 
   describe('2. Get Portfolio Summary', () => {
-    it('retrieves the portfolio by ID', () => {
-      const result = getPortfolioSummary(portfolioId)
+    it('retrieves the portfolio by ID', async () => {
+      const result = await getPortfolioSummary(portfolioId)
       expect(result.success).toBe(true)
       expect(result.portfolio.id).toBe(portfolioId)
     })
 
-    it('returns empty positions array initially', () => {
-      const result = getPortfolioSummary(portfolioId)
+    it('returns empty positions array initially', async () => {
+      const result = await getPortfolioSummary(portfolioId)
       expect(result.portfolio.positions).toHaveLength(0)
     })
 
-    it('returns error for unknown portfolio', () => {
-      const result = getPortfolioSummary('non-existent-id')
+    it('returns error for unknown portfolio', async () => {
+      const result = await getPortfolioSummary('non-existent-id')
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/not found/)
     })
@@ -69,8 +74,8 @@ describe('Paper Trading Integration', () => {
   // ─── Open Position ─────────────────────────────────────────────────────────
 
   describe('3. Open Position (BUY)', () => {
-    it('successfully opens a BTC BUY position', () => {
-      const result = openNewPosition({ portfolioId, symbol: 'BTC', quantity: 0.1 })
+    it('successfully opens a BTC BUY position', async () => {
+      const result = await openNewPosition({ portfolioId, symbol: 'BTC', quantity: 0.1 })
       expect(result.success).toBe(true)
       expect(result.position).toBeDefined()
       expect(result.position.symbol).toBe('BTC')
@@ -79,31 +84,29 @@ describe('Paper Trading Integration', () => {
       positionId = result.position.id
     })
 
-    it('deducts cost from cash balance after BUY', () => {
-      const summary = getPortfolioSummary(portfolioId)
+    it('deducts cost from cash balance after BUY', async () => {
+      const summary = await getPortfolioSummary(portfolioId)
       expect(summary.portfolio.cash_balance).toBeLessThan(10000)
     })
 
-    it('shows 1 open position after BUY', () => {
-      const summary = getPortfolioSummary(portfolioId)
+    it('shows 1 open position after BUY', async () => {
+      const summary = await getPortfolioSummary(portfolioId)
       expect(summary.portfolio.positions).toHaveLength(1)
     })
 
-    it('rejects BUY for unsupported symbol', () => {
-      const result = openNewPosition({ portfolioId, symbol: 'DOGE', quantity: 100 })
+    it('rejects BUY for unsupported symbol', async () => {
+      const result = await openNewPosition({ portfolioId, symbol: 'DOGE', quantity: 100 })
       expect(result.success).toBe(false)
-      // Engine checks market data availability before symbol validation
       expect(result.error).toBeTruthy()
     })
 
-    it('rejects BUY with zero quantity', () => {
-      const result = openNewPosition({ portfolioId, symbol: 'AAPL', quantity: 0 })
+    it('rejects BUY with zero quantity', async () => {
+      const result = await openNewPosition({ portfolioId, symbol: 'AAPL', quantity: 0 })
       expect(result.success).toBe(false)
     })
 
-    it('rejects BUY when insufficient funds', () => {
-      // Try to buy way too much with remaining balance
-      const result = openNewPosition({ portfolioId, symbol: 'BTC', quantity: 999 })
+    it('rejects BUY when insufficient funds', async () => {
+      const result = await openNewPosition({ portfolioId, symbol: 'BTC', quantity: 999 })
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/Insufficient/)
     })
@@ -112,20 +115,20 @@ describe('Paper Trading Integration', () => {
   // ─── Trade History ─────────────────────────────────────────────────────────
 
   describe('4. Trade History', () => {
-    it('shows 1 BUY trade after opening position', () => {
-      const result = getTradeHistory({ portfolioId })
+    it('shows 1 BUY trade after opening position', async () => {
+      const result = await getTradeHistory({ portfolioId })
       expect(result.success).toBe(true)
       expect(result.trades).toHaveLength(1)
       expect(result.trades[0].side).toBe('BUY')
     })
 
-    it('filters trades by symbol', () => {
-      const result = getTradeHistory({ portfolioId, symbol: 'BTC' })
+    it('filters trades by symbol', async () => {
+      const result = await getTradeHistory({ portfolioId, symbol: 'BTC' })
       expect(result.trades.every((t) => t.symbol === 'BTC')).toBe(true)
     })
 
-    it('returns empty for unknown symbol', () => {
-      const result = getTradeHistory({ portfolioId, symbol: 'AAPL' })
+    it('returns empty for unknown symbol', async () => {
+      const result = await getTradeHistory({ portfolioId, symbol: 'AAPL' })
       expect(result.trades).toHaveLength(0)
     })
   })
@@ -133,28 +136,27 @@ describe('Paper Trading Integration', () => {
   // ─── Close Position ────────────────────────────────────────────────────────
 
   describe('5. Close Position (SELL)', () => {
-    it('successfully closes the BTC position', () => {
-      const result = closeExistingPosition({ portfolioId, positionId })
+    it('successfully closes the BTC position', async () => {
+      const result = await closeExistingPosition({ portfolioId, positionId })
       expect(result.success).toBe(true)
       expect(result.position.status).toBe('CLOSED')
       expect(result.trade.side).toBe('SELL')
     })
 
-    it('credits proceeds back to cash balance', () => {
-      const summary = getPortfolioSummary(portfolioId)
-      // After close, all value is in cash (no open positions)
+    it('credits proceeds back to cash balance', async () => {
+      const summary = await getPortfolioSummary(portfolioId)
       expect(summary.portfolio.cash_balance).toBeGreaterThan(0)
       expect(summary.portfolio.positions).toHaveLength(0)
     })
 
-    it('rejects closing an already-closed position', () => {
-      const result = closeExistingPosition({ portfolioId, positionId })
+    it('rejects closing an already-closed position', async () => {
+      const result = await closeExistingPosition({ portfolioId, positionId })
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/already closed/)
     })
 
-    it('rejects closing a position from wrong portfolio', () => {
-      const result = closeExistingPosition({ portfolioId: 'wrong-id', positionId })
+    it('rejects closing a position from wrong portfolio', async () => {
+      const result = await closeExistingPosition({ portfolioId: 'wrong-id', positionId })
       expect(result.success).toBe(false)
     })
   })
@@ -162,16 +164,16 @@ describe('Paper Trading Integration', () => {
   // ─── Trade History After Sell ──────────────────────────────────────────────
 
   describe('6. Trade History After Close', () => {
-    it('shows 2 trades (BUY + SELL) after full lifecycle', () => {
-      const result = getTradeHistory({ portfolioId })
+    it('shows 2 trades (BUY + SELL) after full lifecycle', async () => {
+      const result = await getTradeHistory({ portfolioId })
       expect(result.trades).toHaveLength(2)
       const sides = result.trades.map((t) => t.side)
       expect(sides).toContain('BUY')
       expect(sides).toContain('SELL')
     })
 
-    it('SELL trade has a P&L value', () => {
-      const result = getTradeHistory({ portfolioId })
+    it('SELL trade has a P&L value', async () => {
+      const result = await getTradeHistory({ portfolioId })
       const sellTrade = result.trades.find((t) => t.side === 'SELL')
       expect(sellTrade).toBeDefined()
       expect(sellTrade.pnl).toBeTypeOf('number')
@@ -181,24 +183,24 @@ describe('Paper Trading Integration', () => {
   // ─── Metrics ────────────────────────────────────────────────────────────────
 
   describe('7. Portfolio Metrics', () => {
-    it('returns metrics object', () => {
-      const result = getPortfolioMetrics(portfolioId)
+    it('returns metrics object', async () => {
+      const result = await getPortfolioMetrics(portfolioId)
       expect(result.success).toBe(true)
       expect(result.metrics).toBeDefined()
     })
 
-    it('reports 1 closed trade', () => {
-      const result = getPortfolioMetrics(portfolioId)
+    it('reports 1 closed trade', async () => {
+      const result = await getPortfolioMetrics(portfolioId)
       expect(result.metrics.closed_trades).toBe(1)
     })
 
-    it('win rate is 0 or 100 (only one trade)', () => {
-      const result = getPortfolioMetrics(portfolioId)
+    it('win rate is 0 or 100 (only one trade)', async () => {
+      const result = await getPortfolioMetrics(portfolioId)
       expect([0, 100]).toContain(result.metrics.win_rate)
     })
 
-    it('returns error for non-existent portfolio', () => {
-      const result = getPortfolioMetrics('bad-id')
+    it('returns error for non-existent portfolio', async () => {
+      const result = await getPortfolioMetrics('bad-id')
       expect(result.success).toBe(false)
     })
   })
@@ -206,30 +208,30 @@ describe('Paper Trading Integration', () => {
   // ─── Reset ──────────────────────────────────────────────────────────────────
 
   describe('8. Portfolio Reset', () => {
-    it('resets portfolio to original starting balance', () => {
-      const result = resetPortfolio({ portfolioId })
+    it('resets portfolio to original starting balance', async () => {
+      const result = await resetPortfolio({ portfolioId })
       expect(result.success).toBe(true)
       expect(result.portfolio.cash_balance).toBe(10000)
     })
 
-    it('clears all trades after reset', () => {
-      const result = getTradeHistory({ portfolioId })
+    it('clears all trades after reset', async () => {
+      const result = await getTradeHistory({ portfolioId })
       expect(result.trades).toHaveLength(0)
     })
 
-    it('clears all positions after reset', () => {
-      const summary = getPortfolioSummary(portfolioId)
+    it('clears all positions after reset', async () => {
+      const summary = await getPortfolioSummary(portfolioId)
       expect(summary.portfolio.positions).toHaveLength(0)
     })
 
-    it('allows custom new balance on reset', () => {
-      const result = resetPortfolio({ portfolioId, newBalance: 25000 })
+    it('allows custom new balance on reset', async () => {
+      const result = await resetPortfolio({ portfolioId, newBalance: 25000 })
       expect(result.portfolio.cash_balance).toBe(25000)
       expect(result.portfolio.starting_balance).toBe(25000)
     })
 
-    it('rejects reset for non-existent portfolio', () => {
-      const result = resetPortfolio({ portfolioId: 'ghost-id' })
+    it('rejects reset for non-existent portfolio', async () => {
+      const result = await resetPortfolio({ portfolioId: 'ghost-id' })
       expect(result.success).toBe(false)
       expect(result.error).toMatch(/not found/)
     })

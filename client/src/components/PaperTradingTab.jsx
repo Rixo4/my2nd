@@ -221,7 +221,7 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
     const interval = setInterval(() => {
       fetchAllData(portfolioId)
       fetchMarketMood()
-    }, 4000)
+    }, 10000)
     return () => clearInterval(interval)
   }, [portfolioId, fetchAllData, initPortfolio, fetchMarketMood])
 

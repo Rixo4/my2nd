@@ -1,4 +1,5 @@
 import { getDb } from '../database/init.js'
+import { getSupabase, isSupabaseConfigured } from '../database/supabase.js'
 import { v4 as uuidv4 } from 'uuid'
 
 const NEWSAPI_KEY = process.env.NEWSAPI_KEY || ''
@@ -11,20 +12,46 @@ const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
  * @returns {Promise<Array>}
  */
 export async function getSymbolNews(symbol) {
-  const db = getDb()
   const sym = symbol.toUpperCase()
 
   // 1. Check DB cache first
   try {
-    const cached = db.prepare(`
-      SELECT * FROM news_sentiment 
-      WHERE symbol = ? AND cached_at > ?
-      ORDER BY published_at DESC LIMIT 10
-    `).all(sym, Math.floor(Date.now() / 1000) - 6 * 3600) // 6 hours
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase()
+      const sixHoursAgo = new Date(Date.now() - 6 * 3600 * 1000).toISOString()
+      const { data: cached, error } = await supabase
+        .from('news_sentiment')
+        .select('*')
+        .eq('symbol', sym)
+        .gt('cached_at', sixHoursAgo)
+        .order('published_at', { ascending: false })
+        .limit(10)
+      
+      if (!error && cached && cached.length >= 3) {
+        console.log(`ℹ️ Returning cached news sentiment for ${sym} (Supabase)`)
+        return cached.map(d => ({
+          id: d.id,
+          symbol: d.symbol,
+          title: d.title,
+          summary: d.summary,
+          sentiment_score: d.sentiment_score,
+          source: d.source,
+          published_at: Math.floor(new Date(d.published_at).getTime() / 1000),
+          cached_at: Math.floor(new Date(d.cached_at).getTime() / 1000)
+        }))
+      }
+    } else {
+      const db = getDb()
+      const cached = db.prepare(`
+        SELECT * FROM news_sentiment 
+        WHERE symbol = ? AND cached_at > ?
+        ORDER BY published_at DESC LIMIT 10
+      `).all(sym, Math.floor(Date.now() / 1000) - 6 * 3600) // 6 hours
 
-    if (cached && cached.length >= 3) {
-      console.log(`ℹ️ Returning cached news sentiment for ${sym}`)
-      return cached
+      if (cached && cached.length >= 3) {
+        console.log(`ℹ️ Returning cached news sentiment for ${sym} (SQLite)`)
+        return cached
+      }
     }
   } catch (err) {
     console.error('Error reading cached news:', err.message)
@@ -152,18 +179,36 @@ export async function getSymbolNews(symbol) {
 
   // 4. Cache in Database
   try {
-    const insert = db.prepare(`
-      INSERT OR REPLACE INTO news_sentiment (id, symbol, title, summary, sentiment_score, source, published_at, cached_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `)
+    if (isSupabaseConfigured) {
+      const supabase = getSupabase()
+      await supabase.from('news_sentiment').delete().eq('symbol', sym)
+      const rows = evaluatedArticles.map(item => ({
+        id: item.id,
+        symbol: item.symbol,
+        title: item.title,
+        summary: item.summary,
+        sentiment_score: item.sentiment_score,
+        source: item.source,
+        published_at: new Date(item.published_at * 1000).toISOString(),
+        cached_at: new Date(item.cached_at * 1000).toISOString()
+      }))
+      const { error } = await supabase.from('news_sentiment').insert(rows)
+      if (error) throw error
+    } else {
+      const db = getDb()
+      const insert = db.prepare(`
+        INSERT OR REPLACE INTO news_sentiment (id, symbol, title, summary, sentiment_score, source, published_at, cached_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `)
 
-    db.transaction(() => {
-      // Remove older cached entries for this symbol first
-      db.prepare('DELETE FROM news_sentiment WHERE symbol = ?').run(sym)
-      for (const item of evaluatedArticles) {
-        insert.run(item.id, item.symbol, item.title, item.summary, item.sentiment_score, item.source, item.published_at, item.cached_at)
-      }
-    })()
+      db.transaction(() => {
+        // Remove older cached entries for this symbol first
+        db.prepare('DELETE FROM news_sentiment WHERE symbol = ?').run(sym)
+        for (const item of evaluatedArticles) {
+          insert.run(item.id, item.symbol, item.title, item.summary, item.sentiment_score, item.source, item.published_at, item.cached_at)
+        }
+      })()
+    }
   } catch (err) {
     console.error('Failed to write news sentiment to database cache:', err.message)
   }

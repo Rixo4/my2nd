@@ -85,22 +85,22 @@ export default function PositionSizingCalculator({ portfolioId, symbol, patternN
           <div className="grid grid-cols-3 gap-2 bg-slate-900/50 p-2.5 rounded border border-slate-850 text-center">
             <div>
               <p className="text-[9px] text-slate-500 mb-0.5">ATR Volatility</p>
-              <p className="text-[11px] font-medium text-slate-300">{sizingData.atr.toFixed(2)}</p>
+              <p className="text-[11px] font-medium text-slate-300">{sizingData.atr?.toFixed(2) ?? '—'}</p>
             </div>
             <div>
               <p className="text-[9px] text-slate-500 mb-0.5">Risk Capital</p>
-              <p className="text-[11px] font-medium text-slate-300">${sizingData.riskAmount.toFixed(2)}</p>
+              <p className="text-[11px] font-medium text-slate-300">${sizingData.riskAmount?.toFixed(2) ?? '—'}</p>
             </div>
             <div>
               <p className="text-[9px] text-slate-500 mb-0.5">Stop Loss pts</p>
-              <p className="text-[11px] font-medium text-slate-300">{sizingData.stopLossPoints.toFixed(2)}</p>
+              <p className="text-[11px] font-medium text-slate-300">{sizingData.stopLossPoints?.toFixed(2) ?? '—'}</p>
             </div>
           </div>
 
           <div className="flex items-center justify-between border-t border-slate-800/80 pt-3">
             <div>
               <span className="text-[10px] text-slate-400 block">Recommended Position</span>
-              <span className="text-sm font-black text-white">{sizingData.suggestedQuantity} {symbol}</span>
+              <span className="text-sm font-black text-white">{sizingData.suggestedQuantity ?? '0'} {symbol}</span>
             </div>
 
             {onApplySize && (
