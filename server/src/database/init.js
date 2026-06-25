@@ -184,6 +184,36 @@ export function initDatabase() {
       created_at      INTEGER NOT NULL,
       updated_at      INTEGER NOT NULL
     );
+
+    -- ────────────────────────────────────────────────────────────
+    -- 10. AI MEMORIES (ai_memories)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS ai_memories (
+      id                    TEXT PRIMARY KEY,
+      user_id               TEXT NOT NULL UNIQUE,
+      risk_tolerance        TEXT DEFAULT 'MODERATE' CHECK (risk_tolerance IN ('LOW', 'MODERATE', 'HIGH')),
+      favorite_assets       TEXT DEFAULT '[]',
+      past_mistakes         TEXT DEFAULT '[]',
+      behavior_patterns     TEXT DEFAULT '[]',
+      experience_level      TEXT DEFAULT 'BEGINNER' CHECK (experience_level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED')),
+      learning_style        TEXT DEFAULT 'VISUAL' CHECK (learning_style IN ('VISUAL', 'ANALYTICAL', 'PRACTICAL')),
+      preferred_timeframes  TEXT DEFAULT '["1d"]',
+      fomo_score            INTEGER DEFAULT 5 CHECK (fomo_score BETWEEN 0 AND 10),
+      discipline_score      INTEGER DEFAULT 5 CHECK (discipline_score BETWEEN 0 AND 10),
+      confidence_bias_score INTEGER DEFAULT 5 CHECK (confidence_bias_score BETWEEN 0 AND 10),
+      updated_at            INTEGER NOT NULL
+    );
+
+    -- ────────────────────────────────────────────────────────────
+    -- 11. ML MODELS (ml_models)
+    -- ────────────────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS ml_models (
+      id          TEXT PRIMARY KEY,
+      version     TEXT NOT NULL UNIQUE,
+      accuracy    REAL NOT NULL,
+      features    TEXT NOT NULL,
+      trained_at  INTEGER NOT NULL
+    );
   `)
 
   // Expire caches older than 6 hours at start

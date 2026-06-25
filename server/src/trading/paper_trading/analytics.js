@@ -58,6 +58,8 @@ export function calculateMetrics(trades, snapshots, startingBalance) {
       max_drawdown_percent: maxDrawdownPercent,
       current_streak: { type: null, count: 0 },
       sharpe_ratio: 0,
+      sortino_ratio: 0,
+      volatility: 0,
       equity_curve: equityCurve,
     }
   }
@@ -106,8 +108,10 @@ export function calculateMetrics(trades, snapshots, startingBalance) {
     }
   }
 
-  // ── Sharpe ratio approximation (using daily snapshot returns) ─────────────
+  // ── Sharpe & Sortino ratio approximation (using daily snapshot returns) ───
   let sharpeRatio = 0
+  let sortinoRatio = 0
+  let volatility = 0
   if (sortedSnapshots.length >= 2) {
     const dailyReturns = []
     for (let i = 1; i < sortedSnapshots.length; i++) {
@@ -119,9 +123,21 @@ export function calculateMetrics(trades, snapshots, startingBalance) {
       const mean = dailyReturns.reduce((s, r) => s + r, 0) / dailyReturns.length
       const variance = dailyReturns.reduce((s, r) => s + Math.pow(r - mean, 2), 0) / dailyReturns.length
       const stdDev = Math.sqrt(variance)
+      volatility = roundPrice(stdDev * Math.sqrt(252) * 100, 4) // Annualized volatility in %
+
       const RISK_FREE_RATE_DAILY = 0.0001 // ~2.5% annual
       sharpeRatio = stdDev > 0
         ? roundPrice(((mean - RISK_FREE_RATE_DAILY) / stdDev) * Math.sqrt(252), 4)
+        : 0
+
+      // Sortino Ratio using downside deviation relative to Risk Free Rate
+      const negativeReturns = dailyReturns.filter(r => r < RISK_FREE_RATE_DAILY)
+      const downsideVariance = negativeReturns.length > 0
+        ? negativeReturns.reduce((s, r) => s + Math.pow(r - RISK_FREE_RATE_DAILY, 2), 0) / dailyReturns.length
+        : 0
+      const downsideStdDev = Math.sqrt(downsideVariance)
+      sortinoRatio = downsideStdDev > 0
+        ? roundPrice(((mean - RISK_FREE_RATE_DAILY) / downsideStdDev) * Math.sqrt(252), 4)
         : 0
     }
   }
@@ -142,6 +158,8 @@ export function calculateMetrics(trades, snapshots, startingBalance) {
     max_drawdown_percent: maxDrawdownPercent,
     current_streak: streak,
     sharpe_ratio: sharpeRatio,
+    sortino_ratio: sortinoRatio,
+    volatility: volatility,
     equity_curve: equityCurve,
   }
 }

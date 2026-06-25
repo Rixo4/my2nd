@@ -1,0 +1,50 @@
+{
+  "version": "1.3.0",
+  "trainedAt": "2026-06-24 23:07:29",
+  "accuracy": 0.9021,
+  "features": [
+    "rsi",
+    "macdHist",
+    "volumeChange",
+    "atrPercent",
+    "patternSignal"
+  ],
+  "modelTree": {
+    "feature": "rsi",
+    "threshold": 11.485993523245277,
+    "left": {
+      "feature": "macdHist",
+      "threshold": -15.876688442436079,
+      "left": {
+        "value": 1
+      },
+      "right": {
+        "value": 1
+      }
+    },
+    "right": {
+      "feature": "macdHist",
+      "threshold": -15.62358101180277,
+      "left": {
+        "value": 0
+      },
+      "right": {
+        "feature": "atrPercent",
+        "threshold": 2.4364448059911026,
+        "left": {
+          "value": 0
+        },
+        "right": {
+          "feature": "rsi",
+          "threshold": 54.69267798425528,
+          "left": {
+            "value": 0
+          },
+          "right": {
+            "value": 0
+          }
+        }
+      }
+    }
+  }
+}

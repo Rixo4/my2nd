@@ -470,6 +470,52 @@ DROP POLICY IF EXISTS "Users can insert their own settings" ON public.settings;
 CREATE POLICY "Users can insert their own settings" ON public.settings
     FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+-- ── 21. AI MEMORIES ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.ai_memories (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE UNIQUE,
+    risk_tolerance TEXT DEFAULT 'MODERATE' CHECK (risk_tolerance IN ('LOW', 'MODERATE', 'HIGH')),
+    favorite_assets JSONB DEFAULT '[]'::jsonb,
+    past_mistakes JSONB DEFAULT '[]'::jsonb,
+    behavior_patterns JSONB DEFAULT '[]'::jsonb,
+    experience_level TEXT DEFAULT 'BEGINNER' CHECK (experience_level IN ('BEGINNER', 'INTERMEDIATE', 'ADVANCED')),
+    learning_style TEXT DEFAULT 'VISUAL' CHECK (learning_style IN ('VISUAL', 'ANALYTICAL', 'PRACTICAL')),
+    preferred_timeframes JSONB DEFAULT '["1d"]'::jsonb,
+    fomo_score INTEGER DEFAULT 5 CHECK (fomo_score BETWEEN 0 AND 10),
+    discipline_score INTEGER DEFAULT 5 CHECK (discipline_score BETWEEN 0 AND 10),
+    confidence_bias_score INTEGER DEFAULT 5 CHECK (confidence_bias_score BETWEEN 0 AND 10),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.ai_memories ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can view their own ai memories" ON public.ai_memories;
+CREATE POLICY "Users can view their own ai memories" ON public.ai_memories
+    FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can update their own ai memories" ON public.ai_memories;
+CREATE POLICY "Users can update their own ai memories" ON public.ai_memories
+    FOR UPDATE USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can insert their own ai memories" ON public.ai_memories;
+CREATE POLICY "Users can insert their own ai memories" ON public.ai_memories
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- ── 22. ML MODELS ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.ml_models (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    version TEXT NOT NULL UNIQUE,
+    accuracy DOUBLE PRECISION NOT NULL,
+    features JSONB NOT NULL,
+    trained_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.ml_models ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view ML models" ON public.ml_models;
+CREATE POLICY "Anyone can view ML models" ON public.ml_models
+    FOR SELECT USING (true);
+
 -- ── INDEXES ──────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_portfolios_user ON public.portfolios(user_id);
 CREATE INDEX IF NOT EXISTS idx_positions_portfolio ON public.positions(portfolio_id);
@@ -490,6 +536,8 @@ CREATE INDEX IF NOT EXISTS idx_chat_user ON public.chat_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_reports_user ON public.ai_reports(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_settings_user ON public.settings(user_id);
+CREATE INDEX IF NOT EXISTS idx_ai_memories_user ON public.ai_memories(user_id);
+CREATE INDEX IF NOT EXISTS idx_ml_models_version ON public.ml_models(version);
 
 -- ── TRIGGERS & FUNCTIONS ──────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -515,13 +563,26 @@ BEGIN
     ON CONFLICT (user_id) DO NOTHING;
 
     -- 3. Create initial paper trading portfolio
-    INSERT INTO public.portfolios (user_id, name, starting_balance, cash_balance, total_equity)
-    VALUES (profile_id, 'My Portfolio', 10000.00, 10000.00, 10000.00)
+    INSERT INTO public.portfolios (id, user_id, name, starting_balance, cash_balance, total_equity)
+    VALUES (profile_id, profile_id, 'My Portfolio', 10000.00, 10000.00, 10000.00)
     ON CONFLICT (user_id) DO NOTHING;
 
     -- 4. Create initial academy progress
     INSERT INTO public.academy_progress (user_id, current_level, lessons_completed, xp_points, badges)
     VALUES (profile_id, 'BEGINNER', 0, 0, '[]'::jsonb)
+    ON CONFLICT (user_id) DO NOTHING;
+
+    -- 5. Create initial AI memory
+    INSERT INTO public.ai_memories (
+        user_id, risk_tolerance, favorite_assets, past_mistakes, behavior_patterns,
+        experience_level, learning_style, preferred_timeframes,
+        fomo_score, discipline_score, confidence_bias_score
+    )
+    VALUES (
+        profile_id, 'MODERATE', '[]'::jsonb, '[]'::jsonb, '[]'::jsonb,
+        'BEGINNER', 'VISUAL', '["1d"]'::jsonb,
+        5, 5, 5
+    )
     ON CONFLICT (user_id) DO NOTHING;
 
     RETURN new;

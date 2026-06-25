@@ -1,64 +1,36 @@
-const HF_API_KEY = process.env.HUGGINGFACE_API_KEY || ''
+import { queryGemini } from './ai.js'
 
 /**
- * Generate adaptive lesson content from Hugging Face or fallback templates.
+ * Generate adaptive lesson content from Gemini 2.5 Pro or fallback templates.
  * @param {string} topic 
  * @param {string} userLevel 
  * @param {string} mistakesPattern 
  * @returns {Promise<object>}
  */
 export async function generateAdaptiveLesson(topic, userLevel = 'BEGINNER', mistakesPattern = 'None') {
-  if (HF_API_KEY) {
-    try {
-      console.log(`🧠 Querying Hugging Face for topic "${topic}" (${userLevel})`)
-      const prompt = `<s>[INST] Create a detailed ${userLevel} level lesson on the trading topic: "${topic}". The user commonly makes these errors: "${mistakesPattern}". 
-      Format your response strictly as a JSON object (no extra conversational wrapping text) with these fields:
-      {
-        "title": "Lesson title string",
-        "explanation": "Clear, informative paragraph describing the pattern and mechanics",
-        "example": "A specific trading scenario showing how to spot and apply it",
-        "quiz": [
-          { "question": "Quiz question 1", "options": ["A", "B", "C", "D"], "answer": 0, "rationale": "Why option 0 is correct" },
-          { "question": "Quiz question 2", "options": ["A", "B", "C", "D"], "answer": 1, "rationale": "Why option 1 is correct" }
-        ]
-      }
-      [/INST]`
-
-      const res = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1', {
-        headers: { 
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        method: 'POST',
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { max_new_tokens: 600, temperature: 0.7 }
-        })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        let content = ''
-        if (Array.isArray(data)) {
-          content = data[0]?.generated_text || ''
-        } else {
-          content = data.generated_text || ''
-        }
-        
-        // Extract JSON string from instruction wrapper if present
-        if (content.includes('[/INST]')) {
-          content = content.split('[/INST]')[1]
-        }
-        
-        const cleanJson = content.trim().replace(/^```json/, '').replace(/```$/, '').trim()
-        const resultObj = JSON.parse(cleanJson)
-        if (resultObj.title && resultObj.explanation) {
-          return resultObj
-        }
-      }
-    } catch (err) {
-      console.error('Hugging Face inference failed, using educational fallback:', err.message)
+  try {
+    console.log(`🧠 Querying Gemini 2.5 Pro for topic "${topic}" (${userLevel})`)
+    const prompt = `Create a detailed ${userLevel} level lesson on the trading topic: "${topic}". The user commonly makes these errors: "${mistakesPattern}".`
+    const systemInstruction = `You are a premium virtual trading academy coach.
+    You must format your response strictly as a JSON object with these exact fields:
+    {
+      "title": "Lesson title string",
+      "explanation": "Clear, informative paragraph describing the pattern and mechanics",
+      "example": "A specific trading scenario showing how to spot and apply it",
+      "quiz": [
+        { "question": "Quiz question 1", "options": ["A", "B", "C", "D"], "answer": 0, "rationale": "Why option 0 is correct" },
+        { "question": "Quiz question 2", "options": ["A", "B", "C", "D"], "answer": 1, "rationale": "Why option 1 is correct" }
+      ]
     }
+    Return ONLY a raw JSON object. Do not include markdown wraps.`
+
+    const reply = await queryGemini(prompt, systemInstruction, [], true)
+    const resultObj = JSON.parse(reply)
+    if (resultObj.title && resultObj.explanation) {
+      return resultObj
+    }
+  } catch (err) {
+    console.error('Gemini lesson generation failed, using educational fallback:', err.message)
   }
 
   // Fallback to local templates
@@ -66,60 +38,34 @@ export async function generateAdaptiveLesson(topic, userLevel = 'BEGINNER', mist
 }
 
 /**
- * Generate a dynamic review quiz from past trades using Hugging Face or fallback templates.
+ * Generate a dynamic review quiz from past trades using Gemini 2.5 Pro or fallback templates.
  * @param {object} trade 
  * @returns {Promise<object>}
  */
 export async function generateTradeReviewQuiz(trade) {
-  if (HF_API_KEY) {
-    try {
-      console.log(`🧠 Generating trade review quiz for trade: ${trade.id}`)
-      const prompt = `<s>[INST] Analyze this trade event and generate a review multiple choice question to help the trader learn:
-      - Symbol: ${trade.symbol}
-      - Type: ${trade.side}
-      - Entry Price: ${trade.price}
-      - Exit Price: ${trade.price + trade.pnl / trade.quantity}
-      - Result PnL: $${trade.pnl} (${trade.pnl_percent}%)
-      Format your response strictly as a JSON object (no extra text) with these fields:
-      {
-        "question": "Quiz question review text",
-        "options": ["Option A", "Option B", "Option C", "Option D"],
-        "answer": 0,
-        "rationale": "Actionable explanation of risk sizing or pattern triggers"
-      }
-      [/INST]`
+  try {
+    console.log(`🧠 Generating trade review quiz via Gemini for trade: ${trade.id}`)
+    const prompt = `Analyze this trade event and generate a review multiple choice question to help the trader learn:
+    - Symbol: ${trade.symbol}
+    - Type: ${trade.side}
+    - Entry Price: ${trade.price}
+    - Exit Price: ${trade.price + trade.pnl / trade.quantity}
+    - Result PnL: $${trade.pnl} (${trade.pnl_percent}%)`
 
-      const res = await fetch('https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1', {
-        headers: { 
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        method: 'POST',
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: { max_new_tokens: 400, temperature: 0.7 }
-        })
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        let content = ''
-        if (Array.isArray(data)) {
-          content = data[0]?.generated_text || ''
-        } else {
-          content = data.generated_text || ''
-        }
-        
-        if (content.includes('[/INST]')) {
-          content = content.split('[/INST]')[1]
-        }
-        
-        const cleanJson = content.trim().replace(/^```json/, '').replace(/```$/, '').trim()
-        return JSON.parse(cleanJson)
-      }
-    } catch (err) {
-      console.error('Failed to generate trade review quiz via HF, using fallback:', err.message)
+    const systemInstruction = `You are a professional trading coach. Analyze the trade and generate a multiple choice question to help the trader learn.
+    You must return strictly a JSON object with these fields:
+    {
+      "question": "Quiz question review text",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "answer": 0,
+      "rationale": "Actionable explanation of risk sizing or pattern triggers"
     }
+    Return ONLY a raw JSON object. Do not include markdown wraps.`
+
+    const reply = await queryGemini(prompt, systemInstruction, [], true)
+    return JSON.parse(reply)
+  } catch (err) {
+    console.error('Failed to generate trade review quiz via Gemini, using fallback:', err.message)
   }
 
   // Fallback quiz

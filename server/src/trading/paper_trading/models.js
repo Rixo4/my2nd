@@ -150,6 +150,15 @@ export async function createPortfolio({ id, name = 'My Portfolio', startingBalan
     VALUES (?, ?, 'BEGINNER', 0, 0, '[]', ?)
   `).run(uuidv4(), portfolioId, now)
 
+  db.prepare(`
+    INSERT OR IGNORE INTO ai_memories (
+      id, user_id, risk_tolerance, favorite_assets, past_mistakes, behavior_patterns,
+      experience_level, learning_style, preferred_timeframes, fomo_score, discipline_score,
+      confidence_bias_score, updated_at
+    )
+    VALUES (?, ?, 'MODERATE', '[]', '[]', '[]', 'BEGINNER', 'VISUAL', '["1d"]', 5, 5, 5, ?)
+  `).run(uuidv4(), portfolioId, now)
+
   return getPortfolio(portfolioId)
 }
 
@@ -849,4 +858,102 @@ export async function getUserEmail(userId) {
     return data?.email || `${userId.slice(0, 8)}@tradewise-paper.com`
   }
   return `${userId.slice(0, 8)}@tradewise-paper.com`
+}
+
+export async function getAiMemory(userId) {
+  if (isSupabaseConfigured) {
+    const supabase = getSupabase()
+    const { data, error } = await supabase.from('ai_memories').select('*').eq('user_id', userId).maybeSingle()
+    if (error) throw error
+    return data
+  }
+
+  const db = getDb()
+  const row = db.prepare('SELECT * FROM ai_memories WHERE user_id = ?').get(userId)
+  if (!row) return null
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    risk_tolerance: row.risk_tolerance,
+    favorite_assets: JSON.parse(row.favorite_assets || '[]'),
+    past_mistakes: JSON.parse(row.past_mistakes || '[]'),
+    behavior_patterns: JSON.parse(row.behavior_patterns || '[]'),
+    experience_level: row.experience_level,
+    learning_style: row.learning_style,
+    preferred_timeframes: JSON.parse(row.preferred_timeframes || '["1d"]'),
+    fomo_score: row.fomo_score,
+    discipline_score: row.discipline_score,
+    confidence_bias_score: row.confidence_bias_score,
+    updated_at: row.updated_at
+  }
+}
+
+export async function updateAiMemory(userId, updates) {
+  const now = Math.floor(Date.now() / 1000)
+
+  if (isSupabaseConfigured) {
+    const supabase = getSupabase()
+    const { error } = await supabase
+      .from('ai_memories')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+    if (error) throw error
+    return
+  }
+
+  const db = getDb()
+  const current = await getAiMemory(userId)
+  if (!current) {
+    const id = uuidv4()
+    db.prepare(`
+      INSERT INTO ai_memories (
+        id, user_id, risk_tolerance, favorite_assets, past_mistakes, behavior_patterns,
+        experience_level, learning_style, preferred_timeframes, fomo_score, discipline_score,
+        confidence_bias_score, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      userId,
+      updates.risk_tolerance || 'MODERATE',
+      JSON.stringify(updates.favorite_assets || []),
+      JSON.stringify(updates.past_mistakes || []),
+      JSON.stringify(updates.behavior_patterns || []),
+      updates.experience_level || 'BEGINNER',
+      updates.learning_style || 'VISUAL',
+      JSON.stringify(updates.preferred_timeframes || ['1d']),
+      updates.fomo_score !== undefined ? updates.fomo_score : 5,
+      updates.discipline_score !== undefined ? updates.discipline_score : 5,
+      updates.confidence_bias_score !== undefined ? updates.confidence_bias_score : 5,
+      now
+    )
+    return
+  }
+
+  const risk_tolerance = updates.risk_tolerance !== undefined ? updates.risk_tolerance : current.risk_tolerance
+  const favorite_assets = updates.favorite_assets !== undefined ? JSON.stringify(updates.favorite_assets) : JSON.stringify(current.favorite_assets)
+  const past_mistakes = updates.past_mistakes !== undefined ? JSON.stringify(updates.past_mistakes) : JSON.stringify(current.past_mistakes)
+  const behavior_patterns = updates.behavior_patterns !== undefined ? JSON.stringify(updates.behavior_patterns) : JSON.stringify(current.behavior_patterns)
+  const experience_level = updates.experience_level !== undefined ? updates.experience_level : current.experience_level
+  const learning_style = updates.learning_style !== undefined ? updates.learning_style : current.learning_style
+  const preferred_timeframes = updates.preferred_timeframes !== undefined ? JSON.stringify(updates.preferred_timeframes) : JSON.stringify(current.preferred_timeframes)
+  const fomo_score = updates.fomo_score !== undefined ? updates.fomo_score : current.fomo_score
+  const discipline_score = updates.discipline_score !== undefined ? updates.discipline_score : current.discipline_score
+  const confidence_bias_score = updates.confidence_bias_score !== undefined ? updates.confidence_bias_score : current.confidence_bias_score
+
+  db.prepare(`
+    UPDATE ai_memories
+    SET risk_tolerance = ?, favorite_assets = ?, past_mistakes = ?, behavior_patterns = ?,
+        experience_level = ?, learning_style = ?, preferred_timeframes = ?,
+        fomo_score = ?, discipline_score = ?, confidence_bias_score = ?, updated_at = ?
+    WHERE user_id = ?
+  `).run(
+    risk_tolerance, favorite_assets, past_mistakes, behavior_patterns,
+    experience_level, learning_style, preferred_timeframes,
+    fomo_score, discipline_score, confidence_bias_score, now,
+    userId
+  )
 }

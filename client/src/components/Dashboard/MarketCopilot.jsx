@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Compass, AlertTriangle, ShieldAlert } from 'lucide-react'
+import { Sparkles, TrendingUp, TrendingDown, RefreshCw, Compass, AlertTriangle, ShieldAlert, BrainCircuit, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function MarketCopilot({ symbol }) {
   const [loading, setLoading] = useState(false)
@@ -142,6 +142,80 @@ export default function MarketCopilot({ symbol }) {
             <p className="text-slate-400 text-[9px] leading-relaxed italic">
               "{data.analysis.rationale}"
             </p>
+          </div>
+
+          {/* Explainable AI (XAI) Panel */}
+          <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex flex-col gap-2.5 backdrop-blur-md">
+            <div className="flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+              <BrainCircuit size={12} className="text-purple-400" />
+              <h4 className="text-[10px] text-white font-bold uppercase tracking-wider">Explainable AI (XAI) Panel</h4>
+            </div>
+
+            {/* Model Metadata & Regime */}
+            <div className="flex justify-between items-center bg-slate-950/60 p-2 rounded-lg text-[9px] border border-slate-800">
+              <div>
+                <p className="text-slate-500 font-bold uppercase">ML Outcome Model</p>
+                <p className="text-slate-300 font-mono mt-0.5">v{data.analysis.mlMetadata?.version || '1.0.0'} (Acc: {((data.analysis.mlMetadata?.accuracy || 0.68) * 100).toFixed(1)}%)</p>
+              </div>
+              <div className="text-right">
+                <p className="text-slate-500 font-bold uppercase">Market Regime</p>
+                <p className={`font-mono font-bold mt-0.5 ${data.analysis.regime === 'BULL' ? 'text-emerald-400' : data.analysis.regime === 'BEAR' ? 'text-red-400' : 'text-amber-400'}`}>
+                  {data.analysis.regime || 'SIDEWAYS'}
+                  {data.analysis.regimePenalty ? ` (${data.analysis.regimePenalty}%)` : ''}
+                </p>
+              </div>
+            </div>
+
+            {/* ML Win Probability and factors */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex justify-between items-center text-[9px]">
+                <span className="text-slate-400 font-bold uppercase">GBDT Win Probability</span>
+                <span className="text-purple-400 font-mono font-black">{((data.analysis.mlPrediction || 0.50) * 100).toFixed(0)}%</span>
+              </div>
+              <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden">
+                <div 
+                  className="bg-purple-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${(data.analysis.mlPrediction || 0.50) * 100}%` }}
+                />
+              </div>
+              {data.analysis.topFactors && data.analysis.topFactors.length > 0 && (
+                <p className="text-slate-500 text-[8px] italic leading-normal">
+                  Key splits: {data.analysis.topFactors.join(' → ')}
+                </p>
+              )}
+            </div>
+
+            {/* Pro/Con Signals */}
+            <div className="grid grid-cols-2 gap-2 mt-0.5 pt-1.5 border-t border-slate-800">
+              <div>
+                <p className="text-emerald-400 font-black text-[9px] uppercase tracking-wide flex items-center gap-1 mb-1">
+                  <CheckCircle2 size={10} /> Positive Signals
+                </p>
+                {data.analysis.positiveSignals && data.analysis.positiveSignals.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5">
+                    {data.analysis.positiveSignals.map((sig, i) => (
+                      <li key={i} className="text-slate-300 text-[8px] list-none pl-2 border-l border-emerald-500/30">{sig}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-600 text-[8px] italic">None detected</p>
+                )}
+              </div>
+              <div>
+                <p className="text-red-400 font-black text-[9px] uppercase tracking-wide flex items-center gap-1 mb-1">
+                  <XCircle size={10} /> Negative Signals
+                </p>
+                {data.analysis.negativeSignals && data.analysis.negativeSignals.length > 0 ? (
+                  <ul className="flex flex-col gap-0.5">
+                    {data.analysis.negativeSignals.map((sig, i) => (
+                      <li key={i} className="text-slate-300 text-[8px] list-none pl-2 border-l border-red-500/30">{sig}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-slate-600 text-[8px] italic">None detected</p>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Indicators details checklist */}

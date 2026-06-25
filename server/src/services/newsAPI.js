@@ -2,7 +2,7 @@ import { getDb } from '../database/init.js'
 import { getSupabase, isSupabaseConfigured } from '../database/supabase.js'
 import { v4 as uuidv4 } from 'uuid'
 
-const NEWSAPI_KEY = process.env.NEWSAPI_KEY || ''
+const MARKETAUX_KEY = process.env.MARKETAUX_API_KEY || ''
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || ''
 const GROQ_API_KEY = process.env.GROQ_API_KEY || ''
 
@@ -57,31 +57,35 @@ export async function getSymbolNews(symbol) {
     console.error('Error reading cached news:', err.message)
   }
 
-  // 2. Fetch from NewsAPI.org or fallback to Finnhub
+  // 2. Fetch from Marketaux or fallback to Finnhub
   let articles = []
-  if (NEWSAPI_KEY) {
+  if (MARKETAUX_KEY) {
     try {
-      console.log(`🌐 Fetching news for ${sym} from NewsAPI.org`)
-      const res = await fetch(`https://newsapi.org/v2/everything?q=${sym}&sortBy=publishedAt&pageSize=10&apiKey=${NEWSAPI_KEY}`)
+      console.log(`🌐 Fetching news for ${sym} from Marketaux`)
+      const res = await fetch(`https://api.marketaux.com/v1/news/all?symbols=${sym}&filter_entities=true&limit=10&api_token=${MARKETAUX_KEY}`)
       const data = await res.json()
-      if (data.status === 'ok' && data.articles) {
-        articles = data.articles.map(art => ({
-          title: art.title || '',
-          summary: art.description || art.content || '',
-          source: art.source?.name || 'NewsAPI',
-          publishedAt: art.publishedAt ? Math.floor(new Date(art.publishedAt).getTime() / 1000) : Math.floor(Date.now() / 1000)
-        }))
+      if (data && Array.isArray(data.data)) {
+        articles = data.data.map(art => {
+          const entity = art.entities?.find(e => e.symbol.toUpperCase() === sym)
+          const sentiment = entity ? entity.sentiment_score : calculateHeuristicSentiment(art.title + ' ' + (art.description || ''))
+          return {
+            title: art.title || '',
+            summary: art.description || art.snippet || '',
+            source: art.source || 'Marketaux',
+            publishedAt: art.published_at ? Math.floor(new Date(art.published_at).getTime() / 1000) : Math.floor(Date.now() / 1000),
+            sentiment_score: sentiment
+          }
+        })
       }
     } catch (err) {
-      console.error(`Failed to fetch from NewsAPI for ${sym}:`, err.message)
+      console.error(`Failed to fetch from Marketaux for ${sym}:`, err.message)
     }
   }
 
-  // Fallback to Finnhub if NewsAPI fails or is unconfigured
+  // Fallback to Finnhub if Marketaux fails or is unconfigured
   if (articles.length === 0 && FINNHUB_KEY) {
     try {
       console.log(`🌐 Fetching news for ${sym} from Finnhub fallback`)
-      // Convert crypto ticker if necessary (e.g. BTC -> BINANCE:BTCUSDT)
       const querySymbol = ['BTC', 'ETH'].includes(sym) ? `BINANCE:${sym}USDT` : sym
       const toDate = new Date().toISOString().slice(0, 10)
       const fromDate = new Date(Date.now() - 3 * 24 * 3600).toISOString().slice(0, 10) // last 3 days
@@ -125,44 +129,46 @@ export async function getSymbolNews(symbol) {
   const now = Math.floor(Date.now() / 1000)
 
   for (const art of articles) {
-    let sentimentScore = 0 // Neutral by default
+    let sentimentScore = art.sentiment_score !== undefined ? art.sentiment_score : 0
 
-    if (GROQ_API_KEY) {
-      try {
-        const prompt = `Analyze the sentiment of this headline and summary for the symbol ${sym}. 
-        Headline: "${art.title}"
-        Summary: "${art.summary}"
-        Return ONLY a JSON object with a single field: "sentiment" (a number between -1.0 for highly bearish and 1.0 for highly bullish). Do not explain.`
+    if (art.sentiment_score === undefined) {
+      if (GROQ_API_KEY) {
+        try {
+          const prompt = `Analyze the sentiment of this headline and summary for the symbol ${sym}. 
+          Headline: "${art.title}"
+          Summary: "${art.summary}"
+          Return ONLY a JSON object with a single field: "sentiment" (a number between -1.0 for highly bearish and 1.0 for highly bullish). Do not explain.`
 
-        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${GROQ_API_KEY}`
-          },
-          body: JSON.stringify({
-            model: 'llama-3.1-8b-instant',
-            messages: [{ role: 'user', content: prompt }],
-            temperature: 0.1,
-            max_tokens: 50,
-            response_format: { type: 'json_object' }
+          const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${GROQ_API_KEY}`
+            },
+            body: JSON.stringify({
+              model: 'llama-3.1-8b-instant',
+              messages: [{ role: 'user', content: prompt }],
+              temperature: 0.1,
+              max_tokens: 50,
+              response_format: { type: 'json_object' }
+            })
           })
-        })
 
-        if (res.ok) {
-          const data = await res.json()
-          const json = JSON.parse(data.choices?.[0]?.message?.content || '{}')
-          const score = parseFloat(json.sentiment)
-          if (!isNaN(score)) {
-            sentimentScore = Math.max(-1.0, Math.min(1.0, score))
+          if (res.ok) {
+            const data = await res.json()
+            const json = JSON.parse(data.choices?.[0]?.message?.content || '{}')
+            const score = parseFloat(json.sentiment)
+            if (!isNaN(score)) {
+              sentimentScore = Math.max(-1.0, Math.min(1.0, score))
+            }
           }
+        } catch (err) {
+          console.error('Groq sentiment evaluation failed, falling back to heuristics:', err.message)
+          sentimentScore = calculateHeuristicSentiment(art.title + ' ' + art.summary)
         }
-      } catch (err) {
-        console.error('Groq sentiment evaluation failed, falling back to heuristics:', err.message)
+      } else {
         sentimentScore = calculateHeuristicSentiment(art.title + ' ' + art.summary)
       }
-    } else {
-      sentimentScore = calculateHeuristicSentiment(art.title + ' ' + art.summary)
     }
 
     evaluatedArticles.push({
@@ -211,7 +217,6 @@ export async function getSymbolNews(symbol) {
       `)
 
       db.transaction(() => {
-        // Remove older cached entries for this symbol first
         db.prepare('DELETE FROM news_sentiment WHERE symbol = ?').run(sym)
         for (const item of evaluatedArticles) {
           insert.run(item.id, item.symbol, item.title, item.summary, item.sentiment_score, item.source, item.published_at, item.cached_at)

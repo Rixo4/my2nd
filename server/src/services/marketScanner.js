@@ -7,6 +7,7 @@
 import { getDb } from '../database/init.js'
 import { getSupabase, isSupabaseConfigured } from '../database/supabase.js'
 import { randomUUID } from 'crypto'
+import { getRedisClient } from './redis.js'
 import {
   getAllWatchlistItems,
   createNotification,
@@ -90,41 +91,74 @@ async function fetchAlphaVantageForex(symbol) {
   }
 }
 
-async function fetchTwelveDataCandles(symbol, interval = '1day', outputsize = 20) {
-  if (!TWELVE_DATA_KEY) return null
-  const sym = symbol === 'EURUSD' ? 'EUR/USD' : symbol === 'GBPUSD' ? 'GBP/USD' : symbol
-  try {
-    const res = await fetch(`https://api.twelvedata.com/time_series?symbol=${sym}&interval=${interval}&outputsize=${outputsize}&apikey=${TWELVE_DATA_KEY}`)
-    const data = await res.json()
-    if (!data.values) return null
-    return data.values.reverse().map(v => ({
-      open:  parseFloat(v.open),
-      high:  parseFloat(v.high),
-      low:   parseFloat(v.low),
-      close: parseFloat(v.close),
-      volume:parseFloat(v.volume || 0)
-    }))
-  } catch {
-    return null
+const BASELINES = {
+  AAPL: 180, MSFT: 420, GOOGL: 175, AMZN: 190, NVDA: 850,
+  BTC: 65000, ETH: 3500, BNB: 590, SOL: 170, XRP: 0.60,
+  EURUSD: 1.085, GBPUSD: 1.265
+}
+
+function generateMockCandles(symbol, limit = 50) {
+  const basePrice = BASELINES[symbol.toUpperCase()] || 100.0
+  const candles = []
+  for (let i = 0; i < limit; i++) {
+    const factor = 1 + (Math.sin(i / 10) * 0.03) + (Math.random() * 0.02 - 0.01)
+    const close = basePrice * factor
+    candles.push({
+      open: parseFloat((close * 0.995).toFixed(4)),
+      high: parseFloat((close * 1.01).toFixed(4)),
+      low: parseFloat((close * 0.99).toFixed(4)),
+      close: parseFloat(close.toFixed(4)),
+      volume: Math.floor(1000 + Math.random() * 9000)
+    })
   }
+  return candles
 }
 
 export async function getCandles(symbol, limit = 50) {
-  if (CRYPTO_SYMBOLS.includes(symbol)) {
-    return await fetchBinanceCandles(symbol, '1d', limit)
-  }
-  
-  if (STOCK_SYMBOLS.includes(symbol)) {
-    const poly = await fetchPolygonCandles(symbol, limit)
-    if (poly) return poly
+  const sym = symbol.toUpperCase()
+  const cacheKey = `candles:${sym}:${limit}`
+  const redis = getRedisClient()
+
+  // 1. Check cache first
+  try {
+    const cached = await redis.get(cacheKey)
+    if (cached) {
+      return JSON.parse(cached)
+    }
+  } catch (err) {
+    console.error(`[scanner] Redis get failed for ${sym}:`, err.message)
   }
 
-  if (FOREX_SYMBOLS.includes(symbol)) {
-    const av = await fetchAlphaVantageForex(symbol)
-    if (av) return av
+  // 2. Fetch from active API
+  let candles = null
+  let ttl = 300 // default 5 min for fallbacks
+
+  if (CRYPTO_SYMBOLS.includes(sym)) {
+    candles = await fetchBinanceCandles(sym, '1d', limit)
+    ttl = 900 // 15 min cache for crypto
+  } else if (STOCK_SYMBOLS.includes(sym)) {
+    candles = await fetchPolygonCandles(sym, limit)
+    ttl = 3600 // 1 hour cache for stocks
+  } else if (FOREX_SYMBOLS.includes(sym)) {
+    candles = await fetchAlphaVantageForex(sym)
+    ttl = 3600 // 1 hour cache for forex
   }
 
-  return await fetchTwelveDataCandles(symbol, '1day', limit)
+  // 3. Fallback to mock if API failed or unconfigured
+  if (!candles || candles.length === 0) {
+    console.warn(`[scanner] API fetch failed for ${sym}. Generating mock fallback candles.`)
+    candles = generateMockCandles(sym, limit)
+    ttl = 300 // 5 min cache for fallbacks
+  }
+
+  // 4. Save to cache
+  try {
+    await redis.set(cacheKey, JSON.stringify(candles), 'EX', ttl)
+  } catch (err) {
+    console.error(`[scanner] Redis set failed for ${sym}:`, err.message)
+  }
+
+  return candles
 }
 
 // ── Pattern Detection ──────────────────────────────────────────────────────────

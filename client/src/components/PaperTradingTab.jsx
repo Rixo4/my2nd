@@ -5,7 +5,7 @@ import {
   DollarSign, Wallet, Award, Activity, RotateCcw, ShieldAlert,
   BarChart2, Briefcase, ChevronRight, Clock, Zap, Filter,
   Download, MoreHorizontal, CheckCircle, AlertCircle, X,
-  ArrowRight, Circle, Layers, ChevronDown, Bot
+  ArrowRight, Circle, Layers, ChevronDown, Bot, Brain, Heart, Send
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PositionSizingCalculator from './Trading/PositionSizingCalculator'
@@ -123,6 +123,19 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
   const [aiLoading, setAiLoading] = useState(false)
   const [marketMood, setMarketMood] = useState(null)
 
+  // Portfolio Health AI
+  const [portfolioHealth, setPortfolioHealth] = useState(null)
+  const [healthLoading, setHealthLoading]     = useState(false)
+
+  // AI Memory / Psychology
+  const [aiMemory, setAiMemory]               = useState(null)
+
+  // Trade Journal
+  const [journalNotes, setJournalNotes]       = useState('')
+  const [journalTradeId, setJournalTradeId]   = useState('')
+  const [journalLoading, setJournalLoading]   = useState(false)
+  const [journalFeedback, setJournalFeedback] = useState(null)
+
   const fetchAiAnalysis = useCallback(async (symbol) => {
     if (!symbol) return
     setAiLoading(true)
@@ -138,6 +151,61 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
       setAiLoading(false)
     }
   }, [])
+
+  const fetchAiMemory = useCallback(async (id) => {
+    if (!id) return
+    try {
+      const res = await fetch(`/api/chat/memory/${id}`)
+      const data = await res.json()
+      if (data.success) setAiMemory(data)
+    } catch (err) {
+      console.error('Failed to fetch AI memory:', err)
+    }
+  }, [])
+
+  const handleAnalyzePortfolioHealth = async () => {
+    if (!portfolioId) return
+    setHealthLoading(true)
+    setPortfolioHealth(null)
+    try {
+      const res = await fetch('/api/chat/portfolio-health', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolioId })
+      })
+      const data = await res.json()
+      if (data.success) setPortfolioHealth(data.health)
+    } catch (err) {
+      console.error('Portfolio health error:', err)
+    } finally {
+      setHealthLoading(false)
+    }
+  }
+
+  const handleSubmitJournal = async (e) => {
+    e.preventDefault()
+    if (!journalNotes.trim() || !portfolioId) return
+    setJournalLoading(true)
+    setJournalFeedback(null)
+    try {
+      const res = await fetch('/api/chat/trade-journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ portfolioId, tradeId: journalTradeId || undefined, notes: journalNotes })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setJournalFeedback(data.analysis)
+        setJournalNotes('')
+        setJournalTradeId('')
+        fetchAiMemory(portfolioId)
+      }
+    } catch (err) {
+      console.error('Trade journal error:', err)
+    } finally {
+      setJournalLoading(false)
+    }
+  }
 
   const fetchMarketMood = useCallback(async () => {
     try {
@@ -218,12 +286,13 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
     if (!portfolioId) { setLoading(false); return }
     initPortfolio()
     fetchMarketMood()
+    fetchAiMemory(portfolioId)
     const interval = setInterval(() => {
       fetchAllData(portfolioId)
       fetchMarketMood()
-    }, 10000)
+    }, 30000)
     return () => clearInterval(interval)
-  }, [portfolioId, fetchAllData, initPortfolio, fetchMarketMood])
+  }, [portfolioId, fetchAllData, initPortfolio, fetchMarketMood, fetchAiMemory])
 
   // ── Place order ────────────────────────────────────────────────────────────
   const handlePlaceOrder = async (e) => {
@@ -899,6 +968,268 @@ export default function PaperTradingTab({ activeSymbol, lastCandlePrice, onRefre
               </p>
             </div>
           )}
+
+          {/* ── Portfolio Health AI Card ────────────────────────────────────── */}
+          <div className="bg-slate-950/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-24 h-1 bg-gradient-to-r from-violet-500 to-pink-500" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <Brain size={16} className="text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-white text-xs font-black uppercase tracking-wider">Portfolio Health AI</h3>
+                  <p className="text-slate-500 text-[9px]">Sharpe · Sortino · Risk Grade</p>
+                </div>
+              </div>
+              <button
+                onClick={handleAnalyzePortfolioHealth}
+                disabled={healthLoading}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white rounded-xl text-[10px] font-black transition-all duration-300 shadow-lg shadow-violet-500/20"
+              >
+                {healthLoading ? <RefreshCw size={11} className="animate-spin" /> : <Zap size={11} />}
+                {healthLoading ? 'Analyzing...' : 'Analyze'}
+              </button>
+            </div>
+
+            {!portfolioHealth && !healthLoading && (
+              <p className="text-slate-600 text-[10px] text-center py-4">
+                Click Analyze to generate an AI-powered health report for your portfolio.
+              </p>
+            )}
+
+            {healthLoading && (
+              <div className="flex flex-col gap-2 animate-pulse py-2">
+                <div className="h-4 w-3/4 bg-white/5 rounded" />
+                <div className="h-3 w-1/2 bg-white/5 rounded" />
+                <div className="h-3 w-2/3 bg-white/5 rounded" />
+              </div>
+            )}
+
+            {portfolioHealth && (
+              <div className="flex flex-col gap-4">
+                {/* Grade + Verdict */}
+                <div className="flex items-center gap-4">
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black border ${
+                    portfolioHealth.score === 'A' ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' :
+                    portfolioHealth.score === 'B' ? 'bg-blue-500/15 border-blue-500/30 text-blue-400' :
+                    portfolioHealth.score === 'C' ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' :
+                    'bg-rose-500/15 border-rose-500/30 text-rose-400'
+                  }`}>
+                    {portfolioHealth.score}
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-black">{portfolioHealth.verdict}</p>
+                    <p className={`text-[10px] font-bold mt-0.5 ${
+                      portfolioHealth.drawdownStatus === 'stable' ? 'text-emerald-400' :
+                      portfolioHealth.drawdownStatus === 'caution' ? 'text-amber-400' : 'text-rose-400'
+                    }`}>
+                      Drawdown: {portfolioHealth.drawdownStatus?.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Advanced Metrics */}
+                {portfolioHealth.metrics && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { l: 'Sharpe', v: portfolioHealth.metrics.sharpe?.toFixed(2) ?? '—' },
+                      { l: 'Sortino', v: portfolioHealth.metrics.sortino?.toFixed(2) ?? '—' },
+                      { l: 'Volatility', v: portfolioHealth.metrics.volatility ? `${portfolioHealth.metrics.volatility.toFixed(1)}%` : '—' },
+                      { l: 'Max DD', v: portfolioHealth.metrics.maxDrawdown ? `${portfolioHealth.metrics.maxDrawdown.toFixed(1)}%` : '—' },
+                      { l: 'Profit F.', v: portfolioHealth.metrics.profitFactor?.toFixed(2) ?? '—' },
+                    ].map(item => (
+                      <div key={item.l} className="text-center p-2 rounded-xl bg-slate-900/40 border border-white/5">
+                        <p className="text-[8px] text-slate-500 uppercase tracking-wider">{item.l}</p>
+                        <p className="text-[11px] text-white font-mono font-black mt-0.5">{item.v}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Warnings and Strengths */}
+                {(portfolioHealth.warnings?.length > 0 || portfolioHealth.strengths?.length > 0) && (
+                  <div className="flex flex-col gap-2">
+                    {portfolioHealth.strengths?.map((s, i) => (
+                      <div key={i} className="flex items-start gap-2 text-[10px] text-emerald-400">
+                        <CheckCircle size={11} className="shrink-0 mt-0.5" />
+                        <span>{s}</span>
+                      </div>
+                    ))}
+                    {portfolioHealth.warnings?.map((w, i) => (
+                      <div key={i} className="flex items-start gap-2 text-[10px] text-amber-400">
+                        <AlertCircle size={11} className="shrink-0 mt-0.5" />
+                        <span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <p className="text-slate-400 text-[10px] leading-relaxed border-t border-white/5 pt-3">
+                  {portfolioHealth.analysis || portfolioHealth.critique}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* ── Psychology Scores (AI Memory) ──────────────────────────────── */}
+          {aiMemory && (
+            <div className="bg-slate-950/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-24 h-1 bg-gradient-to-r from-pink-500 to-rose-500" />
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/20 flex items-center justify-center">
+                    <Heart size={16} className="text-pink-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-white text-xs font-black uppercase tracking-wider">Psychology Scores</h3>
+                    <p className="text-slate-500 text-[9px]">AI Memory · Behavioral Tracking</p>
+                  </div>
+                </div>
+                <div className={`text-center px-2.5 py-1 rounded-xl border text-xs font-black ${
+                  aiMemory.derived?.psychology_grade?.startsWith('A') ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-400' :
+                  aiMemory.derived?.psychology_grade?.startsWith('B') ? 'bg-blue-500/10 border-blue-500/25 text-blue-400' :
+                  aiMemory.derived?.psychology_grade?.startsWith('C') ? 'bg-amber-500/10 border-amber-500/25 text-amber-400' :
+                  'bg-rose-500/10 border-rose-500/25 text-rose-400'
+                }`}>
+                  {aiMemory.derived?.psychology_grade ?? 'C'}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3.5">
+                {[
+                  { label: 'Discipline', value: aiMemory.memory?.discipline ?? 5, color: 'bg-emerald-500', textColor: 'text-emerald-400', desc: 'Rule adherence & consistency' },
+                  { label: 'FOMO Control', value: 10 - (aiMemory.memory?.fomo ?? 5), rawFomo: aiMemory.memory?.fomo ?? 5, color: 'bg-blue-500', textColor: 'text-blue-400', desc: 'Lower FOMO = better control' },
+                  { label: 'Confidence Balance', value: 10 - (aiMemory.memory?.confidence_bias ?? 5), color: 'bg-violet-500', textColor: 'text-violet-400', desc: 'Overconfidence resistance' },
+                ].map(gauge => (
+                  <div key={gauge.label}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] text-slate-400 font-bold">{gauge.label}</span>
+                      <span className={`text-[10px] font-black font-mono ${gauge.textColor}`}>
+                        {gauge.value.toFixed(1)} / 10
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/5 h-2 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(gauge.value / 10) * 100}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                        className={`h-full rounded-full ${gauge.color} shadow-[0_0_6px_currentColor]`}
+                      />
+                    </div>
+                    <p className="text-[9px] text-slate-600 mt-0.5">{gauge.desc}</p>
+                  </div>
+                ))}
+              </div>
+
+              {aiMemory.memory?.past_mistakes?.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-white/5">
+                  <p className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-2">Tracked Mistakes</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {aiMemory.memory.past_mistakes.slice(-5).map((m, i) => (
+                      <span key={i} className="text-[9px] px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400">{m}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
+                <span className="text-[9px] text-slate-600">v{aiMemory.memory?.memory_version ?? 1} · {aiMemory.memory?.journal_count ?? 0} journal entries</span>
+                <span className={`text-[9px] font-bold ${
+                  aiMemory.derived?.improvement_rate >= 60 ? 'text-emerald-400' : aiMemory.derived?.improvement_rate >= 40 ? 'text-amber-400' : 'text-rose-400'
+                }`}>
+                  {aiMemory.derived?.improvement_rate ?? 0}% Improvement Score
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ── Trade Journal ──────────────────────────────────────────────── */}
+          <div className="bg-slate-950/40 backdrop-blur-xl border border-white/5 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-24 h-1 bg-gradient-to-r from-indigo-500 to-blue-500" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+                <Bot size={16} className="text-indigo-400" />
+              </div>
+              <div>
+                <h3 className="text-white text-xs font-black uppercase tracking-wider">Trade Journal AI</h3>
+                <p className="text-slate-500 text-[9px]">Behavioral analysis · Emotion tracking</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmitJournal} className="flex flex-col gap-3">
+              {trades.length > 0 && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Link to Trade (optional)</label>
+                  <select
+                    value={journalTradeId}
+                    onChange={e => setJournalTradeId(e.target.value)}
+                    className="bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-indigo-500/40 transition-colors"
+                  >
+                    <option value="">General review</option>
+                    {trades.filter(t => t.side === 'SELL' || t.pnl != null).slice(0, 10).map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.side} {t.symbol} · {t.pnl != null ? (t.pnl >= 0 ? '+' : '') + t.pnl?.toFixed(2) : '—'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <label className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Trade Notes & Emotions</label>
+                <textarea
+                  value={journalNotes}
+                  onChange={e => setJournalNotes(e.target.value)}
+                  placeholder="Describe your emotions, reasoning, and any mistakes... e.g. 'I felt FOMO and entered too late, price had already moved...' "
+                  rows={4}
+                  className="bg-slate-950/60 border border-white/10 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-indigo-500/40 transition-colors resize-none placeholder:text-slate-700"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={!journalNotes.trim() || journalLoading}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all duration-300 shadow-lg shadow-indigo-500/20"
+              >
+                {journalLoading ? <RefreshCw size={12} className="animate-spin" /> : <Send size={12} />}
+                {journalLoading ? 'Analyzing...' : 'Get AI Feedback'}
+              </button>
+            </form>
+
+            {/* AI Journal Feedback */}
+            {journalFeedback && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3"
+              >
+                <p className="text-slate-300 text-[10px] leading-relaxed">{journalFeedback.review}</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { l: 'FOMO', v: journalFeedback.fomo_adjustment, pos: 'Controlled', neg: 'High FOMO' },
+                    { l: 'Discipline', v: journalFeedback.discipline_adjustment, pos: 'Rule Follow', neg: 'Rule Break' },
+                    { l: 'Bias', v: journalFeedback.bias_adjustment, pos: 'Balanced', neg: 'Overconfident' },
+                  ].map(item => (
+                    <div key={item.l} className={`text-center p-2 rounded-xl border text-[9px] font-bold ${
+                      item.v > 0 ? 'bg-emerald-500/8 border-emerald-500/20 text-emerald-400' :
+                      item.v < 0 ? 'bg-rose-500/8 border-rose-500/20 text-rose-400' :
+                      'bg-white/3 border-white/8 text-slate-400'
+                    }`}>
+                      <p className="text-[8px] text-slate-500">{item.l}</p>
+                      {item.v > 0 ? item.pos : item.v < 0 ? item.neg : 'Neutral'}
+                    </div>
+                  ))}
+                </div>
+                {journalFeedback.mistake && (
+                  <div className="flex items-center gap-2 text-[10px] text-rose-400">
+                    <AlertCircle size={11} />
+                    Mistake: {journalFeedback.mistake}
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </div>
 
           {/* Active Positions watchlist block */}
           <div className="bg-slate-950/40 backdrop-blur-xl border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
