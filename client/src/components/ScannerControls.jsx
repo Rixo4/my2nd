@@ -12,7 +12,7 @@ export default function ScannerControls() {
 
   const fetchStatus = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/suggestions/scan-status')
+      const res = await fetch('/api/suggestions/scan-status')
       const data = await res.json()
       if (data.success) {
         setStatus({
@@ -36,7 +36,7 @@ export default function ScannerControls() {
     setLoading(true)
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] Triggering scan...`, ...prev])
     try {
-      const res = await fetch('http://localhost:5000/api/suggestions/scan', {
+      const res = await fetch('/api/suggestions/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ force: true })

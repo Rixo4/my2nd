@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client'
 
-const BACKEND_URL = 'http://localhost:5000'
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000')
 
 export class BinanceService {
   constructor(symbol, timeframe, onUpdate) {
@@ -51,7 +51,7 @@ export class BinanceService {
     if (s.endsWith('USDT')) s = s.slice(0, -4)
     const tf = timeframe || '1d'
     try {
-      const response = await fetch(`http://localhost:5000/api/market/ohlc/${s}?timeframe=${tf}&limit=${limit}`)
+      const response = await fetch(`/api/market/ohlc/${s}?timeframe=${tf}&limit=${limit}`)
       const resData = await response.json()
       if (resData.success && resData.data) {
         return resData.data
