@@ -3,7 +3,6 @@ import { getPortfolioSummary, getPortfolioMetrics, getTradeHistory } from '../sr
 import { validateBody, chatSchema, portfolioHealthSchema, tradeJournalSchema } from '../src/middlewares/validation.js'
 import { queryGemini, queryOpenAI, queryGroq } from '../src/services/ai.js'
 import { getAiMemory, updateAiMemory } from '../src/trading/paper_trading/models.js'
-import { runBacktest } from '../src/services/backtester.js'
 
 const router = Router()
 
@@ -245,40 +244,6 @@ router.post('/trade-journal', validateBody(tradeJournalSchema), async (req, res)
   }
 })
 
-/**
- * POST /api/chat/backtest
- * Simulates a strategy backtest and returns metrics (ROI, Win Rate, Sharpe, Sortino, Max DD).
- */
-router.post('/backtest', async (req, res) => {
-  try {
-    const {
-      symbol,
-      strategyName,
-      parameters,
-      commissionRate,
-      slippagePercent,
-      initialCapital
-    } = req.body || {}
-
-    if (!symbol) {
-      return res.status(400).json({ success: false, error: 'Symbol is required.' })
-    }
-
-    const result = await runBacktest({
-      symbol,
-      strategyName: strategyName || 'RSI',
-      parameters: parameters || {},
-      commissionRate: commissionRate !== undefined ? Number(commissionRate) : 0.001,
-      slippagePercent: slippagePercent !== undefined ? Number(slippagePercent) : 0.0005,
-      initialCapital: initialCapital !== undefined ? Number(initialCapital) : 10000
-    })
-
-    res.json({ success: true, result })
-  } catch (err) {
-    console.error('Error in backtest route:', err.message)
-    res.status(500).json({ success: false, error: err.message })
-  }
-})
 
 /**
  * GET /api/chat/memory/:portfolioId

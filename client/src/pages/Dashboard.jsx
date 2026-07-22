@@ -23,7 +23,6 @@ import NewsSection from '../components/Dashboard/NewsSection'
 import AITradeRecommendations from '../components/Dashboard/AITradeRecommendations'
 import NewsPatternCorrelation from '../components/Dashboard/NewsPatternCorrelation'
 import MarketCopilot from '../components/Dashboard/MarketCopilot'
-import BacktestingTab from '../components/BacktestingTab'
 import { CANDLE_DATA, ALL_SYMBOLS, SYMBOLS, getNextCandle } from '../data/mockData'
 import { STOCK_MARKET_NEWS } from '../data/newsData'
 import { detectPatterns, detectTrend } from '../utils/patternDetection'
@@ -702,14 +701,7 @@ export default function Dashboard() {
             <Scale size={12} />
             AI Correlation
           </button>
-          <button
-            onClick={() => setActiveTab('backtest')}
-            className={`px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all duration-200 flex items-center gap-1.5
-              ${activeTab === 'backtest' ? 'bg-brand-500 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-          >
-            <BarChart2 size={12} />
-            Backtester
-          </button>
+
         </div>
 
         <div className="flex items-center gap-2">
@@ -875,17 +867,7 @@ export default function Dashboard() {
               </motion.div>
             )}
 
-            {activeTab === 'backtest' && (
-              <motion.div
-                key="backtesting"
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -15 }}
-                className="w-full"
-              >
-                <BacktestingTab />
-              </motion.div>
-            )}
+
 
             {activeTab === 'terminal' && mobileView === 'chart' && (
               <motion.div 
