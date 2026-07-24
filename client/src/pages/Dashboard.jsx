@@ -128,11 +128,13 @@ export default function Dashboard() {
   const [isBeginner, setIsBeginner] = useState(false)
   const [showPatterns, setShowPatterns] = useState(true)
   const [trend, setTrend] = useState('Analyzing...')
-  // Refs so live effect callbacks always see the latest values without stale closures
-  const isRealTimeRef = useState(() => ({ current: false }))[0]
-  const isCryptoRef   = useState(() => ({ current: false }))[0]
-  const activeSymbolRef = useState(() => ({ current: 'BTC' }))[0]
-  const isBegModeRef  = useState(() => ({ current: false }))[0]
+  // Stable mutable refs — updated synchronously in loadSymbol
+  // so live-effect callbacks never see stale values
+  const isRealTimeRef   = useState(() => ({ current: false }))[0]
+  const isCryptoRef     = useState(() => ({ current: false }))[0]
+  const activeSymbolRef = useState(() => ({ current: 'BTC'  }))[0]
+  // 'mock' | 'real' — prevents mock ticks from polluting real Binance candles
+  const dataSourceRef   = useState(() => ({ current: 'mock' }))[0]
   const portfolioId = user?.uid || localStorage.getItem('tradewise_paper_portfolio_id')
 
   const [portfolio, setPortfolio] = useState({ 
@@ -447,9 +449,11 @@ export default function Dashboard() {
       }
 
       // Update refs so live effect always sees latest values
-      isRealTimeRef.current = realTime
-      isCryptoRef.current   = isCrypto
+      isRealTimeRef.current  = realTime
+      isCryptoRef.current    = isCrypto
       activeSymbolRef.current = sym
+      // Track data source so mock ticks don't corrupt real candles
+      dataSourceRef.current  = realTime ? 'real' : 'mock'
 
       setIsRealTime(realTime)
       setCandles(data)
@@ -458,13 +462,9 @@ export default function Dashboard() {
       setLastUpdate(new Date().toLocaleTimeString())
     } catch (error) {
       console.error('Error loading symbol:', error)
-      setLastUpdate('Error loading data')
+      setLastUpdate('Error')
     }
   }, [timeframe])
-
-  useEffect(() => {
-    isBegModeRef.current = isBeginner
-  }, [isBeginner])
 
   useEffect(() => {
     loadSymbol(activeSymbol)
@@ -520,7 +520,7 @@ export default function Dashboard() {
     let binanceWs = null
     let tickInterval = null
 
-    // applyCandle: safely merge a new tick into candles state (pure updater)
+    // applyCandle: pure state updater — no side-effects inside
     const applyCandle = (newCandle) => {
       if (!newCandle || typeof newCandle.time !== 'number') return
       setCandles(prev => {
@@ -530,7 +530,7 @@ export default function Dashboard() {
           // Update current open candle in-place
           return [...prev.slice(0, -1), { ...last, ...newCandle }]
         } else if (newCandle.time > last.time) {
-          // New candle: append (keep latest 200)
+          // New candle: append, keep latest 200
           return [...prev.slice(-199), newCandle]
         }
         // Older than last candle: ignore
@@ -544,11 +544,11 @@ export default function Dashboard() {
     const isCrypto = symInfo?.market === 'crypto'
 
     if (isRealTime && isCrypto) {
-      // ── Crypto: Binance WebSocket (sub-second) ──
+      // ── Real crypto: Binance WebSocket + REST poll ──
       binanceWs = new BinanceService(sym, timeframe, applyCandle)
       binanceWs.connect()
 
-      // Also poll REST every 3s as a guaranteed visible update
+      // REST poll every 3s — guaranteed visible update even if WS is slow
       tickInterval = setInterval(async () => {
         try {
           const tf = timeframe || '1d'
@@ -560,19 +560,23 @@ export default function Dashboard() {
           if (!arr || arr.length === 0) return
           const d = arr[arr.length - 1]
           applyCandle({
-            time:   Math.floor(d[0] / 1000),
-            open:   parseFloat(d[1]),
-            high:   parseFloat(d[2]),
-            low:    parseFloat(d[3]),
-            close:  parseFloat(d[4]),
-            volume: parseFloat(d[5]),
+            time:    Math.floor(d[0] / 1000),
+            open:    parseFloat(d[1]),
+            high:    parseFloat(d[2]),
+            low:     parseFloat(d[3]),
+            close:   parseFloat(d[4]),
+            volume:  parseFloat(d[5]),
             isFinal: false
           })
-        } catch (_) { /* ignore */ }
+        } catch (_) { /* ignore poll errors */ }
       }, 3000)
     } else {
-      // ── Stocks / Forex / fallback: simulated 1-minute ticks ──
+      // ── Stocks / Forex / mock: simulated 1-minute ticks ──
+      // Guard: only apply mock ticks when candles are actually mock data
+      // (prevents mock ticks from corrupting real Binance daily candles
+      //  during the brief window before isRealTime becomes true)
       tickInterval = setInterval(() => {
+        if (dataSourceRef.current === 'real') return  // real data loaded — skip mock
         const newCandle = getNextCandle(sym)
         if (newCandle) applyCandle(newCandle)
       }, 1500)
@@ -923,6 +927,16 @@ export default function Dashboard() {
                   </div>
                 )}
                 <div className="relative">
+                  {/* Live timestamp bar */}
+                  {lastUpdate && lastUpdate !== 'Loading...' && lastUpdate !== 'Error' && (
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full animate-pulse ${isRealTime ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                      <span className={`text-[10px] font-bold uppercase tracking-widest ${isRealTime ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {isRealTime ? 'Live' : 'Simulated'}
+                      </span>
+                      <span className="text-[10px] text-slate-500">• Last updated: {lastUpdate}</span>
+                    </div>
+                  )}
                   <Chart key={`${activeSymbol}_${timeframe}`} data={candles} patterns={filteredPatterns} height={window.innerWidth < 640 ? 300 : 400} showPatterns={showPatterns} onShowPatternsChange={setShowPatterns} />
                 </div>
                 <MarketCopilot symbol={activeSymbol} />
