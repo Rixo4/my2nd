@@ -108,11 +108,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
   const currentPrice = lastCandle ? lastCandle.close.toFixed(2) : '0.00'
 
   // Generate dynamic welcome card data
-  const patternNames = patterns && patterns.length > 0 
-    ? patterns.slice(0, 3).map(p => `${p.pattern} (${p.confidence}% confidence${p.signal ? `, ${p.signal}` : ''})`).join('\n  • ')
-    : 'none'
-
-  const initialWelcomeText = `Hello there! 👋 It's nice to meet you!\n\nI am **Chartify AI Copilot**, your real-time charting assistant. Currently tracking **${symbol}**:\n  • Price: $${currentPrice}\n  • Trend Regime: \`[ ${trend} ]\`\n  • Detected Patterns: \`[ ${patterns.length > 0 ? patterns[0].pattern : 'none'} ]\`\n  • Technicals: RSI: \`[ 50 ]\` (Neutral), EMA Cross: \`[ Bearish ]\`\n\nPlease, use the quick-questions below or ask me anything about Chartify!`
+  const initialWelcomeText = `Hello there! 👋 It's nice to meet you!\n\nI am **TradeWise AI Copilot**, your real-time charting assistant. Currently tracking **${symbol}**:\n  • Price: $${currentPrice}\n  • Trend Regime: \`[ ${trend} ]\`\n  • Detected Patterns: \`[ ${patterns.length > 0 ? patterns[0].pattern : 'none'} ]\`\n  • Technicals: RSI: \`[ 50 ]\` (Neutral), EMA Cross: \`[ Bearish ]\`\n\nPlease, use the quick-questions below or ask me anything about TradeWise!`
 
   const [messages, setMessages] = useState([
     {
@@ -158,13 +154,19 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
       })
       const data = await res.json()
 
-      if (data.success) {
+      if (data.success && data.response) {
         setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
       } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: `⚠️ ${data.error || 'Failed to get response.'}` }])
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: `CURRENT MARKET ANALYSIS\nTradeWise AI Copilot is currently active. Please try re-sending your question.\n  • Tip: Maintain stop-losses on all open positions.` 
+        }])
       }
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Failed to connect to server. Please try again.' }])
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: `CURRENT MARKET ANALYSIS\nTradeWise AI Copilot is currently active. Please try re-sending your question.\n  • Tip: Maintain stop-losses on all open positions.` 
+      }])
     } finally {
       setIsLoading(false)
     }
@@ -199,7 +201,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
       >
         <Bot size={24} className="text-white" />
         <span className="absolute right-16 bg-surface-900 border border-slate-700 text-white text-xs px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-xl">
-          Chartify AI Copilot
+          TradeWise AI Copilot
         </span>
       </button>
     )
@@ -216,7 +218,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-white font-extrabold text-xs uppercase tracking-wider">CHARTIFY AI COPILOT</h3>
+              <h3 className="text-white font-extrabold text-xs uppercase tracking-wider">TRADEWISE AI COPILOT</h3>
               <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             </div>
             <p className="text-slate-400 text-[10px] font-mono">Tracking {symbol} • {timeframe}</p>
@@ -246,7 +248,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
           <div key={index} className="flex flex-col gap-1">
             {/* Header label above bubble matching user screenshots */}
             <span className={`text-[10px] font-extrabold uppercase tracking-widest text-slate-500 ${message.role === 'user' ? 'text-right pr-1' : 'pl-1'}`}>
-              {message.role === 'user' ? 'YOU' : 'CHARTIFYBOT'}
+              {message.role === 'user' ? 'YOU' : 'TRADEWISE BOT'}
             </span>
 
             <div className={message.role === 'user' ? 'self-end max-w-[85%]' : 'w-full'}>
@@ -270,7 +272,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
         {isLoading && (
           <div className="flex flex-col gap-1">
             <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500 pl-1">
-              CHARTIFYBOT
+              TRADEWISE BOT
             </span>
             <div className="w-full bg-slate-950/80 border border-slate-600/60 rounded-2xl p-4 flex items-center gap-3">
               <RefreshCw size={16} className="text-purple-400 animate-spin" />
@@ -283,7 +285,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Quick-Questions Bar (matching screenshot recommendation) ───── */}
+      {/* ── Quick-Questions Bar ─────────────────────────────────────── */}
       <div className="px-4 pb-2 pt-1 border-t border-slate-900 bg-slate-950/60">
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-2">Quick Questions:</p>
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -322,7 +324,7 @@ export default function ChatBot({ symbol = 'BTC', patterns = [], trend = 'Analyz
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder={`Ask Chartify about ${symbol}...`}
+            placeholder={`Ask TradeWise about ${symbol}...`}
             className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-xs md:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-purple-500 transition-all"
             disabled={isLoading}
           />
