@@ -496,7 +496,6 @@ export default function Dashboard() {
     let binanceWs = null
 
     const handleNewData = (updatedData, newCandle) => {
-      setCandles(updatedData)
       const currentTrend = detectTrend(updatedData)
       setTrend(currentTrend)
       const detected = detectPatterns(updatedData)
@@ -514,12 +513,15 @@ export default function Dashboard() {
       if (isRealTime) {
         binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, (newCandle) => {
           setCandles(prev => {
+            if (!prev || prev.length === 0) return [newCandle]
             const last = prev[prev.length - 1]
             let updated = []
             if (last && last.time === newCandle.time) {
               updated = [...prev.slice(0, -1), newCandle]
-            } else {
+            } else if (newCandle.time > last.time) {
               updated = [...prev.slice(-199), newCandle]
+            } else {
+              return prev
             }
             handleNewData(updated, newCandle)
             return updated
