@@ -64,8 +64,39 @@ function getAction(trend, latest) {
           icon: <Target size={20} />
         }
       }
+    } else if (latest.signal === 'neutral') {
+      // Doji, Spinning Top, etc. — indecision candles
+      if (t === 'Uptrend') {
+        return {
+          title: 'Uptrend Losing Steam — Stay Alert',
+          desc: `A ${latest.pattern} has formed in an Uptrend. Bulls and bears are equal — the trend may be pausing or reversing. Wait for the next candle to confirm direction before adding positions.`,
+          color: 'text-amber-400',
+          bg: 'bg-amber-400/10',
+          border: 'border-amber-400/30',
+          icon: <AlertTriangle size={20} />
+        }
+      } else if (t === 'Downtrend') {
+        return {
+          title: 'Possible Bounce — Confirmation Needed',
+          desc: `A ${latest.pattern} has appeared in a Downtrend, signaling market indecision. Sellers may be weakening. Wait for a bullish follow-through before considering a long entry.`,
+          color: 'text-amber-400',
+          bg: 'bg-amber-400/10',
+          border: 'border-amber-400/30',
+          icon: <AlertTriangle size={20} />
+        }
+      } else {
+        return {
+          title: 'Full Indecision — Hold and Watch',
+          desc: `A ${latest.pattern} in a Sideways market means neither buyers nor sellers are in control. Avoid entering any position — wait for a clear breakout or breakdown with volume.`,
+          color: 'text-slate-400',
+          bg: 'bg-slate-400/10',
+          border: 'border-slate-400/30',
+          icon: <Minus size={20} />
+        }
+      }
     }
   }
+
 
   if (t === 'Uptrend') {
     return {
