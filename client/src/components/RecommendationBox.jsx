@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
-import { ShieldCheck, Target, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { ArrowRight, ShieldCheck, Target, AlertTriangle, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 function getAction(trend, latest) {
   const t = trend || 'Sideways'
@@ -48,7 +48,7 @@ function getAction(trend, latest) {
       } else if (t === 'Uptrend') {
         return {
           title: 'Caution — Trend May Be Weakening',
-          desc: `A ${latest.pattern} appeared in an Uptrend — a potential warning sign. Tighten stop-losses but don't panic sell until confirmed.`,
+          desc: `A ${latest.pattern} appeared in an Uptrend — a potential warning sign. Tighten stop-losses but do not panic sell until confirmed.`,
           color: 'text-amber-400',
           bg: 'bg-amber-400/10',
           border: 'border-amber-400/30',
@@ -102,7 +102,7 @@ export default function RecommendationBox({ trend, patterns }) {
   const action = getAction(trend, latest)
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`p-5 rounded-2xl border ${action.border} ${action.bg} mb-6`}
@@ -111,7 +111,7 @@ export default function RecommendationBox({ trend, patterns }) {
         <div className={action.color}>{action.icon}</div>
         <h3 className={`text-sm font-black uppercase tracking-widest ${action.color}`}>What should I do?</h3>
       </div>
-      
+
       <p className="text-white text-xs font-medium leading-relaxed mb-4">
         {action.desc}
       </p>
@@ -127,9 +127,9 @@ export default function RecommendationBox({ trend, patterns }) {
             <p className="text-white text-[10px] font-bold">{latest?.pattern || 'None'}</p>
           </div>
         </div>
-        
+
         {latest && (
-          <Link 
+          <Link
             to={`/patterns/${latest.pattern.toLowerCase().replace(/\s+/g, '-')}`}
             className="flex items-center gap-1.5 text-[10px] font-bold text-white bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-all"
           >
