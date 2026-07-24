@@ -7,6 +7,8 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
   const chartRef = useRef(null)
   const seriesRef = useRef(null)
   const drawingSeriesRef = useRef([])
+  const prevCountRef = useRef(0)
+  const lastTimeRef = useRef(null)
   const [drawingMode, setDrawingMode] = useState('view') // 'view', 'line', 'box'
   const [drawings, setDrawings] = useState([]) // { type: 'line', points: [{time, price}] }
   const [isDrawing, setIsDrawing] = useState(false)
@@ -141,7 +143,18 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
       const sortedData = Array.from(map.values()).sort((a, b) => a.time - b.time)
 
       if (sortedData.length > 0) {
-        seriesRef.current.setData(sortedData)
+        const lastCandle = sortedData[sortedData.length - 1]
+        if (
+          seriesRef.current &&
+          sortedData.length === prevCountRef.current &&
+          lastTimeRef.current === lastCandle.time
+        ) {
+          seriesRef.current.update(lastCandle)
+        } else {
+          seriesRef.current.setData(sortedData)
+          prevCountRef.current = sortedData.length
+          lastTimeRef.current = lastCandle.time
+        }
       }
 
       if (showPatterns && patterns.length > 0) {
