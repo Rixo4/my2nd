@@ -84,14 +84,22 @@ export function getNextCandle(symbol) {
   const sym = ALL_SYMBOLS.find(s => s.id === symbol)
   if (!sym) return null
   const existing = CANDLE_DATA[sym.id]
+  if (!existing || existing.length === 0) return null
   const last = existing[existing.length - 1]
   const rand = Math.random
-  const change = (rand() - 0.49) * 2 * 0.015 * last.close
-  const open = last.close
-  const close = +(open + change).toFixed(2)
-  const high = +(Math.max(open, close) + rand() * 0.01 * close).toFixed(2)
-  const low  = +(Math.min(open, close) - rand() * 0.01 * close).toFixed(2)
-  const newCandle = { time: last.time + 86400, open, high, low, close, volume: Math.floor(rand() * 5000000 + 100000) }
-  CANDLE_DATA[sym.id] = [...existing.slice(-119), newCandle]
-  return newCandle
+  const change = (rand() - 0.49) * 2 * 0.005 * last.close
+  const close = +(last.close + change).toFixed(2)
+  const high = +(Math.max(last.high, close)).toFixed(2)
+  const low  = +(Math.min(last.low, close)).toFixed(2)
+  
+  const updatedCandle = { 
+    ...last, 
+    high, 
+    low, 
+    close, 
+    volume: last.volume + Math.floor(rand() * 500) 
+  }
+  
+  CANDLE_DATA[sym.id] = [...existing.slice(0, -1), updatedCandle]
+  return updatedCandle
 }
