@@ -1177,8 +1177,6 @@ export default function Dashboard() {
         symbol={activeSymbol}
         patterns={patterns}
         trend={trend}
-        candles={candles}
-        timeframe={timeframe}
         isMinimized={isChatBotMinimized}
         onToggleMinimize={() => setIsChatBotMinimized(!isChatBotMinimized)}
         portfolioId={portfolioId}
