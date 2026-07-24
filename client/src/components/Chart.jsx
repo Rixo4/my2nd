@@ -144,17 +144,15 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
 
       if (sortedData.length > 0) {
         const lastCandle = sortedData[sortedData.length - 1]
-        if (
-          seriesRef.current &&
-          sortedData.length === prevCountRef.current &&
-          lastTimeRef.current === lastCandle.time
-        ) {
+        if (sortedData.length === prevCountRef.current) {
+          // Same number of candles: update the last candle in-place (price tick)
           seriesRef.current.update(lastCandle)
         } else {
+          // New candle added or first load: replace all data
           seriesRef.current.setData(sortedData)
           prevCountRef.current = sortedData.length
-          lastTimeRef.current = lastCandle.time
         }
+        lastTimeRef.current = lastCandle.time
       }
 
       if (showPatterns && patterns.length > 0) {
