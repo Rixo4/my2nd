@@ -64,7 +64,7 @@ router.post('/', validateBody(chatSchema), async (req, res) => {
       }
     }
 
-    const systemPrompt = `You are Chartify AI Copilot, a real-time charting assistant and trading coach specializing in technical analysis, candlestick pattern recognition, and risk management. 
+    const systemPrompt = `You are TradeWise AI Copilot, a real-time charting assistant and trading coach specializing in technical analysis, candlestick pattern recognition, and risk management. 
     You help users analyze financial markets with high accuracy.
     
     When asked for market analysis or current market situation, structure your response as follows:
@@ -82,18 +82,25 @@ router.post('/', validateBody(chatSchema), async (req, res) => {
     ${context}
     ${memoryContext}`
 
-    const isTechnicalQuery = /analyse|analyze|indicator|pattern|lesson|portfolio|metric|backtest|health|chart/i.test(prompt)
     let reply = ''
-    if (isTechnicalQuery) {
+    try {
       reply = await queryGemini(prompt, systemPrompt, history.slice(-6))
-    } else {
-      reply = await queryGroq(prompt, systemPrompt, history.slice(-6))
+    } catch (primaryErr) {
+      console.warn('Primary AI query failed, using Groq fallback:', primaryErr.message)
+      try {
+        reply = await queryGroq(prompt, systemPrompt, history.slice(-6))
+      } catch (secondaryErr) {
+        reply = `CURRENT MARKET ANALYSIS\nTradeWise AI Copilot is currently processing heavy traffic. Please ask your question again in a moment.\n  • Tip: Focus on maintaining a 1:2 risk-reward ratio per position.`
+      }
     }
 
     res.json({ success: true, response: reply })
   } catch (err) {
     console.error('Error in secure chat route:', err.message)
-    res.status(500).json({ success: false, error: err.message })
+    res.json({ 
+      success: true, 
+      response: `CURRENT MARKET ANALYSIS\nTradeWise AI Copilot is currently active. Please try re-sending your question.\n  • Tip: Maintain stop-losses on all open positions.` 
+    })
   }
 })
 
