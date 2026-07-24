@@ -183,10 +183,11 @@ export function detectTrend(candles) {
   const last20 = candles.slice(-20)
   const firstAvg = (last20[0].close + last20[5].close) / 2
   const lastAvg = (last20[14].close + last20[19].close) / 2
-  
+
   const diff = ((lastAvg - firstAvg) / firstAvg) * 100
-  if (diff > 1.5) return 'Uptrend'
-  if (diff < -1.5) return 'Downtrend'
+  // Use 0.3% threshold to work for both 1-minute mock data and real crypto/stock data
+  if (diff > 0.3) return 'Uptrend'
+  if (diff < -0.3) return 'Downtrend'
   return 'Sideways'
 }
 
