@@ -534,12 +534,19 @@ export default function Dashboard() {
           const newCandle = getNextCandle(activeSymbol)
           if (!newCandle) return
           setCandles(prev => {
-            const updated = [...prev.slice(-119), newCandle]
+            if (!prev || prev.length === 0) return [newCandle]
+            const last = prev[prev.length - 1]
+            let updated = []
+            if (last && last.time === newCandle.time) {
+              updated = [...prev.slice(0, -1), newCandle]
+            } else {
+              updated = [...prev.slice(-119), newCandle]
+            }
             handleNewData(updated, newCandle)
             return updated
           })
           setLastUpdate(new Date().toLocaleTimeString())
-        }, isBeginner ? 8000 : 4000)
+        }, 1500)
         return () => clearInterval(interval)
       }
     } catch (error) {
