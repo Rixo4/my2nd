@@ -128,6 +128,11 @@ export default function Dashboard() {
   const [isBeginner, setIsBeginner] = useState(false)
   const [showPatterns, setShowPatterns] = useState(true)
   const [trend, setTrend] = useState('Analyzing...')
+  // Refs so live effect callbacks always see the latest values without stale closures
+  const isRealTimeRef = useState(() => ({ current: false }))[0]
+  const isCryptoRef   = useState(() => ({ current: false }))[0]
+  const activeSymbolRef = useState(() => ({ current: 'BTC' }))[0]
+  const isBegModeRef  = useState(() => ({ current: false }))[0]
   const portfolioId = user?.uid || localStorage.getItem('tradewise_paper_portfolio_id')
 
   const [portfolio, setPortfolio] = useState({ 
@@ -412,40 +417,44 @@ export default function Dashboard() {
       let realTime = false
 
       if (isCrypto) {
-        // Crypto → Binance REST direct (free, no key)
+        // Crypto: fetch directly from Binance REST (no API key needed)
         try {
-          data = await BinanceService.getHistoricalData(sym + 'USDT', timeframe)
+          data = await BinanceService.getHistoricalData(sym, timeframe)
           if (data && data.length > 0) realTime = true
         } catch (err) {
-          console.error('Binance historical fetch failed, falling back to mock:', err)
+          console.error('Binance historical fetch failed, using mock:', err)
         }
       }
 
-      // Stocks & Forex → backend /api/market/ohlc, fallback to mock
-      if (!data || data.length === 0) {
+      // Stocks & Forex: try backend OHLC endpoint
+      if (!isCrypto && (!data || data.length === 0)) {
         try {
-          const res = await fetch(`/api/market/ohlc/${sym}?timeframe=${timeframe}&limit=120`)
+          const res = await fetch(`/api/market/ohlc/${sym}?timeframe=${timeframe}&limit=200`)
           const json = await res.json()
           if (json.success && json.data && json.data.length > 0) {
             data = json.data
             realTime = json.source !== 'mock'
           }
         } catch (err) {
-          console.error('Backend OHLC fetch failed, falling back to mock:', err)
+          console.error('Backend OHLC fetch failed, using mock:', err)
         }
       }
 
-      // Final fallback → seeded mock data
+      // Final fallback: seeded mock 1-minute candles
       if (!data || data.length === 0) {
         realTime = false
         data = [...(CANDLE_DATA[sym] || [])]
       }
 
+      // Update refs so live effect always sees latest values
+      isRealTimeRef.current = realTime
+      isCryptoRef.current   = isCrypto
+      activeSymbolRef.current = sym
+
       setIsRealTime(realTime)
       setCandles(data)
       setTrend(detectTrend(data))
-      const detected = detectPatterns(data)
-      setPatterns(detected)
+      setPatterns(detectPatterns(data))
       setLastUpdate(new Date().toLocaleTimeString())
     } catch (error) {
       console.error('Error loading symbol:', error)
@@ -453,6 +462,9 @@ export default function Dashboard() {
     }
   }, [timeframe])
 
+  useEffect(() => {
+    isBegModeRef.current = isBeginner
+  }, [isBeginner])
 
   useEffect(() => {
     loadSymbol(activeSymbol)
@@ -491,100 +503,86 @@ export default function Dashboard() {
     setNewsLoading(false)
   }
 
+  // ─── Derive trend+patterns whenever candles change ────────────────────────
+  // Doing this in a useEffect (not inside a setCandles updater) is the
+  // React-correct approach: state updaters must be pure.
+  useEffect(() => {
+    if (!candles || candles.length === 0) return
+    const newTrend = detectTrend(candles)
+    setTrend(newTrend)
+    const detected = detectPatterns(candles)
+    setPatterns(detected)
+  }, [candles])
+
+  // ─── Live data connection ─────────────────────────────────────────────────
   useEffect(() => {
     if (!isLive) return
     let binanceWs = null
-    let restPollInterval = null
+    let tickInterval = null
 
-    const handleNewData = (updatedData, newCandle) => {
-      const currentTrend = detectTrend(updatedData)
-      setTrend(currentTrend)
-      const detected = detectPatterns(updatedData)
-      setPatterns(detected)
-      if (detected.length > 0 && (newCandle.isFinal || !isRealTime)) {
-        const latestPattern = detected[0]
-        if (latestPattern.time === newCandle.time) {
-          setAlerts(a => [generateAlert(activeSymbol, latestPattern, isBeginner), ...a].slice(0, 8))
-        }
-      }
-    }
-
+    // applyCandle: safely merge a new tick into candles state (pure updater)
     const applyCandle = (newCandle) => {
+      if (!newCandle || typeof newCandle.time !== 'number') return
       setCandles(prev => {
-        if (!prev || prev.length === 0) return [newCandle]
+        if (!prev || prev.length === 0) return prev
         const last = prev[prev.length - 1]
-        let updated = []
-        if (last && last.time === newCandle.time) {
-          updated = [...prev.slice(0, -1), newCandle]
+        if (last.time === newCandle.time) {
+          // Update current open candle in-place
+          return [...prev.slice(0, -1), { ...last, ...newCandle }]
         } else if (newCandle.time > last.time) {
-          updated = [...prev.slice(-199), newCandle]
-        } else {
-          return prev
+          // New candle: append (keep latest 200)
+          return [...prev.slice(-199), newCandle]
         }
-        handleNewData(updated, newCandle)
-        return updated
+        // Older than last candle: ignore
+        return prev
       })
       setLastUpdate(new Date().toLocaleTimeString())
     }
 
-    try {
-      if (isRealTime) {
-        const symInfo = ALL_SYMBOLS.find(s => s.id === activeSymbol)
-        const isCrypto = symInfo?.market === 'crypto'
+    const sym = activeSymbolRef.current
+    const symInfo = ALL_SYMBOLS.find(s => s.id === sym)
+    const isCrypto = symInfo?.market === 'crypto'
 
-        // WebSocket for fast sub-second ticks (crypto only)
-        if (isCrypto) {
-          binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, applyCandle)
-          binanceWs.connect()
-        }
+    if (isRealTime && isCrypto) {
+      // ── Crypto: Binance WebSocket (sub-second) ──
+      binanceWs = new BinanceService(sym, timeframe, applyCandle)
+      binanceWs.connect()
 
-        // REST poll every 3s as guaranteed visible update for all real-time assets
-        restPollInterval = setInterval(async () => {
-          try {
-            const sym = activeSymbol.toUpperCase()
-            let latestCandles = []
-            if (isCrypto) {
-              const tf = timeframe || '1d'
-              const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}USDT&interval=${tf}&limit=2`)
-              if (res.ok) {
-                const arr = await res.json()
-                latestCandles = arr.map(d => ({
-                  time: Math.floor(d[0] / 1000),
-                  open: parseFloat(d[1]),
-                  high: parseFloat(d[2]),
-                  low: parseFloat(d[3]),
-                  close: parseFloat(d[4]),
-                  volume: parseFloat(d[5]),
-                  isFinal: false
-                }))
-              }
-            }
-            if (latestCandles.length > 0) {
-              const latest = latestCandles[latestCandles.length - 1]
-              applyCandle(latest)
-            }
-          } catch (err) {
-            // Silently ignore poll errors
-          }
-        }, 3000)
-      } else {
-        // Non-real-time: mock tick every 1.5s
-        const interval = setInterval(() => {
-          const newCandle = getNextCandle(activeSymbol)
-          if (!newCandle) return
-          applyCandle(newCandle)
-        }, 1500)
-        return () => clearInterval(interval)
-      }
-    } catch (error) {
-      console.error('Error in live data connection:', error)
+      // Also poll REST every 3s as a guaranteed visible update
+      tickInterval = setInterval(async () => {
+        try {
+          const tf = timeframe || '1d'
+          const res = await fetch(
+            `https://api.binance.com/api/v3/klines?symbol=${sym.toUpperCase()}USDT&interval=${tf}&limit=2`
+          )
+          if (!res.ok) return
+          const arr = await res.json()
+          if (!arr || arr.length === 0) return
+          const d = arr[arr.length - 1]
+          applyCandle({
+            time:   Math.floor(d[0] / 1000),
+            open:   parseFloat(d[1]),
+            high:   parseFloat(d[2]),
+            low:    parseFloat(d[3]),
+            close:  parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+            isFinal: false
+          })
+        } catch (_) { /* ignore */ }
+      }, 3000)
+    } else {
+      // ── Stocks / Forex / fallback: simulated 1-minute ticks ──
+      tickInterval = setInterval(() => {
+        const newCandle = getNextCandle(sym)
+        if (newCandle) applyCandle(newCandle)
+      }, 1500)
     }
 
     return () => {
       if (binanceWs) binanceWs.disconnect()
-      if (restPollInterval) clearInterval(restPollInterval)
+      if (tickInterval) clearInterval(tickInterval)
     }
-  }, [activeSymbol, isLive, isRealTime, timeframe, isBeginner])
+  }, [activeSymbol, isLive, isRealTime, timeframe])
 
   const filteredPatterns = patterns.filter(p =>
     signal === 'All' || p.signal === signal
