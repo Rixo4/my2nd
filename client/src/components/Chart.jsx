@@ -131,7 +131,18 @@ export default function Chart({ data, patterns = [], height = 420, showPatterns:
   useEffect(() => {
     if (!seriesRef.current || !data?.length) return
     try {
-      seriesRef.current.setData(data)
+      // Ensure data is strictly sorted by ascending time and deduplicated
+      const map = new Map()
+      data.forEach(c => {
+        if (c && typeof c.time === 'number') {
+          map.set(c.time, c)
+        }
+      })
+      const sortedData = Array.from(map.values()).sort((a, b) => a.time - b.time)
+
+      if (sortedData.length > 0) {
+        seriesRef.current.setData(sortedData)
+      }
 
       if (showPatterns && patterns.length > 0) {
         const markersMap = new Map()
