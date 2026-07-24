@@ -412,17 +412,17 @@ export default function Dashboard() {
       let realTime = false
 
       if (isCrypto) {
-        // Crypto → Binance REST (free, no key)
+        // Crypto → Binance REST direct (free, no key)
         try {
           data = await BinanceService.getHistoricalData(sym + 'USDT', timeframe)
           if (data && data.length > 0) realTime = true
         } catch (err) {
-          console.error('Binance historical fetch failed, trying backend:', err)
+          console.error('Binance historical fetch failed, falling back to mock:', err)
         }
       }
 
-      // Stocks & Forex → backend /api/market/ohlc (Twelve Data)
-      if (!realTime || !data || data.length === 0) {
+      // Stocks & Forex → backend /api/market/ohlc, fallback to mock
+      if (!data || data.length === 0) {
         try {
           const res = await fetch(`/api/market/ohlc/${sym}?timeframe=${timeframe}&limit=120`)
           const json = await res.json()
@@ -494,13 +494,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!isLive) return
     let binanceWs = null
+    let restPollInterval = null
 
     const handleNewData = (updatedData, newCandle) => {
       const currentTrend = detectTrend(updatedData)
       setTrend(currentTrend)
       const detected = detectPatterns(updatedData)
       setPatterns(detected)
-
       if (detected.length > 0 && (newCandle.isFinal || !isRealTime)) {
         const latestPattern = detected[0]
         if (latestPattern.time === newCandle.time) {
@@ -509,43 +509,70 @@ export default function Dashboard() {
       }
     }
 
+    const applyCandle = (newCandle) => {
+      setCandles(prev => {
+        if (!prev || prev.length === 0) return [newCandle]
+        const last = prev[prev.length - 1]
+        let updated = []
+        if (last && last.time === newCandle.time) {
+          updated = [...prev.slice(0, -1), newCandle]
+        } else if (newCandle.time > last.time) {
+          updated = [...prev.slice(-199), newCandle]
+        } else {
+          return prev
+        }
+        handleNewData(updated, newCandle)
+        return updated
+      })
+      setLastUpdate(new Date().toLocaleTimeString())
+    }
+
     try {
       if (isRealTime) {
-        binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, (newCandle) => {
-          setCandles(prev => {
-            if (!prev || prev.length === 0) return [newCandle]
-            const last = prev[prev.length - 1]
-            let updated = []
-            if (last && last.time === newCandle.time) {
-              updated = [...prev.slice(0, -1), newCandle]
-            } else if (newCandle.time > last.time) {
-              updated = [...prev.slice(-199), newCandle]
-            } else {
-              return prev
+        const symInfo = ALL_SYMBOLS.find(s => s.id === activeSymbol)
+        const isCrypto = symInfo?.market === 'crypto'
+
+        // WebSocket for fast sub-second ticks (crypto only)
+        if (isCrypto) {
+          binanceWs = new BinanceService(activeSymbol + 'USDT', timeframe, applyCandle)
+          binanceWs.connect()
+        }
+
+        // REST poll every 3s as guaranteed visible update for all real-time assets
+        restPollInterval = setInterval(async () => {
+          try {
+            const sym = activeSymbol.toUpperCase()
+            let latestCandles = []
+            if (isCrypto) {
+              const tf = timeframe || '1d'
+              const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${sym}USDT&interval=${tf}&limit=2`)
+              if (res.ok) {
+                const arr = await res.json()
+                latestCandles = arr.map(d => ({
+                  time: Math.floor(d[0] / 1000),
+                  open: parseFloat(d[1]),
+                  high: parseFloat(d[2]),
+                  low: parseFloat(d[3]),
+                  close: parseFloat(d[4]),
+                  volume: parseFloat(d[5]),
+                  isFinal: false
+                }))
+              }
             }
-            handleNewData(updated, newCandle)
-            return updated
-          })
-          setLastUpdate(new Date().toLocaleTimeString())
-        })
-        binanceWs.connect()
+            if (latestCandles.length > 0) {
+              const latest = latestCandles[latestCandles.length - 1]
+              applyCandle(latest)
+            }
+          } catch (err) {
+            // Silently ignore poll errors
+          }
+        }, 3000)
       } else {
+        // Non-real-time: mock tick every 1.5s
         const interval = setInterval(() => {
           const newCandle = getNextCandle(activeSymbol)
           if (!newCandle) return
-          setCandles(prev => {
-            if (!prev || prev.length === 0) return [newCandle]
-            const last = prev[prev.length - 1]
-            let updated = []
-            if (last && last.time === newCandle.time) {
-              updated = [...prev.slice(0, -1), newCandle]
-            } else {
-              updated = [...prev.slice(-119), newCandle]
-            }
-            handleNewData(updated, newCandle)
-            return updated
-          })
-          setLastUpdate(new Date().toLocaleTimeString())
+          applyCandle(newCandle)
         }, 1500)
         return () => clearInterval(interval)
       }
@@ -555,6 +582,7 @@ export default function Dashboard() {
 
     return () => {
       if (binanceWs) binanceWs.disconnect()
+      if (restPollInterval) clearInterval(restPollInterval)
     }
   }, [activeSymbol, isLive, isRealTime, timeframe, isBeginner])
 
