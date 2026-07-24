@@ -18,7 +18,7 @@ export default function RecommendationBox({ trend, patterns }) {
     if (latest.signal === 'bullish') {
       action = {
         title: "Looking Bullish",
-        desc: `A ${latest.pattern} has formed. Combined with the ${trend}, this is a high-confidence long setup.`,
+        desc: `A ${latest.pattern} has formed. Combined with the ${trend || 'market trend'}, this is a high-confidence long setup.`,
         color: "text-emerald-400",
         bg: "bg-emerald-400/10",
         border: "border-emerald-400/20",
@@ -27,12 +27,30 @@ export default function RecommendationBox({ trend, patterns }) {
     } else if (latest.signal === 'bearish') {
       action = {
         title: "Bearish Pressure",
-        desc: `The ${latest.pattern} suggests a reversal. Be cautious with long positions.`,
+        desc: `The ${latest.pattern} pattern suggests a downward reversal. Exercise caution with long positions.`,
         color: "text-red-400",
         bg: "bg-red-400/10",
         border: "border-red-400/20",
         icon: <Target size={20} />
       }
+    }
+  } else if (trend === 'Uptrend') {
+    action = {
+      title: "Strong Uptrend Momentum",
+      desc: "Prices are making higher highs and higher lows. Consider buying on minor dip pullbacks to key support levels.",
+      color: "text-emerald-400",
+      bg: "bg-emerald-400/10",
+      border: "border-emerald-400/20",
+      icon: <ShieldCheck size={20} />
+    }
+  } else if (trend === 'Downtrend') {
+    action = {
+      title: "Active Downtrend Pressure",
+      desc: "Sellers are in control. Wait for bullish reversal signals or confirmation before entering new buy orders.",
+      color: "text-red-400",
+      bg: "bg-red-400/10",
+      border: "border-red-400/20",
+      icon: <Target size={20} />
     }
   }
 
@@ -75,3 +93,4 @@ export default function RecommendationBox({ trend, patterns }) {
     </motion.div>
   )
 }
+
